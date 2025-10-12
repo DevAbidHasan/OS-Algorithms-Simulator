@@ -1,0 +1,10 @@
+@import "tailwindcss";
+@plugin "daisyui";
+
+a .active {
+    color: red;
+}
+
+*{
+    @apply scroll-smooth
+}
