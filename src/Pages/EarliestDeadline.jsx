@@ -6,19 +6,16 @@ const EarliestDeadline = () => {
   const [timeline, setTimeline] = useState([]);
   const [error, setError] = useState("");
 
-  // Add new task
   const addTask = () => {
     setTasks([...tasks, { name: "", execution: "", period: "" }]);
   };
 
-  // Handle input changes
   const handleChange = (index, field, value) => {
     const newTasks = [...tasks];
     newTasks[index][field] = value;
     setTasks(newTasks);
   };
 
-  // Simulate EDF Scheduling
   const simulateEDF = () => {
     if (tasks.some(t => !t.name || !t.execution || !t.period)) {
       setError("Please fill all fields for each task.");
@@ -31,38 +28,41 @@ const EarliestDeadline = () => {
       name: t.name,
       execution: parseInt(t.execution),
       period: parseInt(t.period),
-      remaining: parseInt(t.execution),
-      nextDeadline: parseInt(t.period)
     }));
 
     // Compute hyperperiod
-    const lcm = (a, b) => {
-      const gcd = (x, y) => (!y ? x : gcd(y, x % y));
-      return (a * b) / gcd(a, b);
-    };
+    const gcd = (x, y) => (!y ? x : gcd(y, x % y));
+    const lcm = (a, b) => (a * b) / gcd(a, b);
     let hyperperiod = taskData[0].period;
     for (let i = 1; i < taskData.length; i++) {
       hyperperiod = lcm(hyperperiod, taskData[i].period);
     }
 
+    // job queue: each entry is { name, remaining, deadline }
+    const jobQueue = [];
     const schedule = [];
 
     for (let time = 0; time < hyperperiod; time++) {
-      // Release tasks at the start of their period
+      // Release new job instances at the start of each period
       taskData.forEach(task => {
         if (time % task.period === 0) {
-          task.remaining = task.execution;
-          task.nextDeadline = time + task.period;
+          jobQueue.push({
+            name: task.name,
+            remaining: task.execution,
+            deadline: time + task.period,
+          });
         }
       });
 
-      // Pick ready task with earliest deadline
-      const readyTasks = taskData.filter(task => task.remaining > 0);
-      if (readyTasks.length > 0) {
-        readyTasks.sort((a, b) => a.nextDeadline - b.nextDeadline);
-        const currentTask = readyTasks[0];
-        schedule.push(currentTask.name);
-        currentTask.remaining -= 1;
+      // Filter jobs that still have work remaining
+      const readyJobs = jobQueue.filter(job => job.remaining > 0);
+
+      if (readyJobs.length > 0) {
+        // Pick the job with the earliest deadline (EDF)
+        readyJobs.sort((a, b) => a.deadline - b.deadline);
+        const currentJob = readyJobs[0];
+        schedule.push(currentJob.name);
+        currentJob.remaining -= 1;
       } else {
         schedule.push("-"); // idle
       }

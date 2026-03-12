@@ -28,8 +28,8 @@ const Hero = () => {
             >
               Start Simulation
             </Link>
-            <a
-              href="#about"
+            <a target="_blank"
+              href="https://github.com/DevAbidHasan/OS-Algorithms-Simulator"
               className="border border-white text-white px-6 py-3 rounded-full hover:bg-white/10 transition duration-300"
             >
               Learn More
