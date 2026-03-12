@@ -1,5 +1,6 @@
 // Bankers.jsx
 import React, { useState } from "react";
+import { Link } from "react-router";
 
 const Bankers = () => {
   const [processes, setProcesses] = useState([{ name: "", allocation: "", max: "" }]);
@@ -65,6 +66,9 @@ const Bankers = () => {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center p-6 md:p-12">
       <h1 className="md:text-3xl font-bold mb-6 text-indigo-700">Bankers Algorithm Simulator</h1>
+      <button className="btn btn-primary">
+        <Link to="/bankers-algorithm">Refresh</Link>
+      </button>
 
       {/* Available Resources */}
       <div className="mb-6 w-full max-w-2xl">

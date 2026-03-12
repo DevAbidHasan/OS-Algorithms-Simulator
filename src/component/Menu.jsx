@@ -24,13 +24,13 @@ const Menu = () => {
         <Link
           to="/"
           onMouseEnter={() => setActiveMenu(null)}
-          className="font-bold text-lg md:text-3xl tracking-wide"
+          className="font-bold text-lg  md:text-3xl tracking-wide"
         >
           OS Simulator
         </Link>
 
         {/* Desktop Menu */}
-        <ul className="hidden md:flex items-center gap-10 font-medium">
+        <ul className="hidden lg:flex items-center gap-10 font-medium">
 
           <li>
             <Link
@@ -97,8 +97,8 @@ const Menu = () => {
 
         {/* Contact */}
         <Link
-          to="about"
-          className="btn btn-secondary w-[120px]"
+          to="about" onMouseEnter={() => setActiveMenu(null)}
+          className="btn hidden lg:flex btn-secondary w-[120px]"
         >
           About
         </Link>
@@ -106,7 +106,7 @@ const Menu = () => {
         {/* Mobile Button */}
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="md:hidden text-2xl"
+          className="lg:hidden text-2xl"
         >
           ☰
         </button>
@@ -214,7 +214,7 @@ const Menu = () => {
 
       {/* MOBILE MENU */}
       {menuOpen && (
-        <div className="md:hidden bg-gradient-to-r from-indigo-700 to-violet-500 text-white p-6 space-y-4">
+        <div className="lg:hidden bg-gradient-to-r from-indigo-700 to-violet-500 text-white p-6 space-y-4">
 
          <div className="">
            <Link className="" onClick={closeMenus} to="/">Home</Link>
@@ -279,7 +279,7 @@ const Menu = () => {
 
           </div>
           <div className="btn btn-secondary w-full">
-            About
+            <Link to="/about">About</Link>
           </div>
 
         </div>
