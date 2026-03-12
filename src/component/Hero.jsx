@@ -3,7 +3,7 @@ import { Link } from "react-router";
 
 const Hero = () => {
   return (
-    <section className="bg-gradient-to-r from-indigo-700 via-purple-700 to-violet-500 text-white min-h-[90vh] flex items-center justify-center px-6 md:px-16 lg:px-24 xl:px-32 relative overflow-hidden">
+    <section className="bg-gradient-to-r pb-5 from-indigo-700 via-purple-700 to-violet-500 text-white min-h-[90vh] flex items-center justify-center px-6 md:px-16 lg:px-24 xl:px-32 relative overflow-hidden">
       {/* Decorative Background Blurs */}
       <div className="absolute top-10 left-10 w-72 h-72 bg-violet-400/30 rounded-full blur-3xl -z-10" />
       <div className="absolute bottom-10 right-10 w-72 h-72 bg-indigo-400/30 rounded-full blur-3xl -z-10" />

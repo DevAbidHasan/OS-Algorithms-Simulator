@@ -17,6 +17,7 @@ import CSCAN from "../Pages/Disc/CSCAN";
 import LOOK from "../Pages/Disc/LOOK";
 import CLOOK from "../Pages/Disc/CLOOK";
 import LIFO from "../Pages/Disc/LIFO";
+import About from "../component/About";
 
 export const router = createBrowserRouter([
     {
@@ -96,5 +97,9 @@ export const router = createBrowserRouter([
                 Component : LIFO
             }
         ]
+    },
+    {
+        path : "about",
+        Component: About
     }
 ])

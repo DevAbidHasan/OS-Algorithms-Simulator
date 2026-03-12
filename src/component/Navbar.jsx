@@ -7,7 +7,6 @@ import Hero from "./Hero";
 const Navbar = () => {
   return (
     <div>
-      <Banner></Banner>
         <Menu></Menu>
         
     </div>
