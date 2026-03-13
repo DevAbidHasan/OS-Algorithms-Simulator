@@ -8,3 +8,46 @@ a .active {
 *{
     @apply scroll-smooth
 }
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  .about-root { font-family: 'DM Sans', sans-serif; }
+  .mono       { font-family: 'JetBrains Mono', monospace; }
+
+  @keyframes fadeUp   { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes spinPlat { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  @keyframes armSway  { 0%,100%{transform:rotate(-20deg)} 50%{transform:rotate(22deg)} }
+  @keyframes floatY   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
+  @keyframes blink    { 0%,100%{opacity:1} 50%{opacity:0} }
+  @keyframes glowPulse{ 0%,100%{opacity:.5;transform:scale(1)} 50%{opacity:.9;transform:scale(1.05)} }
+
+  .fade-up   { animation: fadeUp 0.65s ease both; }
+  .plat-spin { animation: spinPlat 10s linear infinite; }
+  .arm-sway  { animation: armSway 3.2s ease-in-out infinite; transform-origin: 48% 95%; }
+  .float-y   { animation: floatY 4s ease-in-out infinite; }
+  .blink-cur { animation: blink 1s step-end infinite; }
+  .glow      { animation: glowPulse 2.8s ease-in-out infinite; }
+
+  .card-lift { transition: transform .2s ease, box-shadow .2s ease; }
+  .card-lift:hover { transform:translateY(-5px); box-shadow:0 14px 36px rgba(79,70,229,.14); }
+
+  .al-row { transition: background .15s, padding-left .18s; border-radius: 10px; }
+  .al-row:hover { background:#eef2ff; padding-left: 1rem; }
+  .al-row-g:hover { background:#ecfdf5; padding-left: 1rem; }
+  .al-row-v:hover { background:#f5f3ff; padding-left: 1rem; }
+
+  .hero-dots {
+    background-image: radial-gradient(rgba(255,255,255,.12) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  .badge {
+    display:inline-block;
+    font-family:'JetBrains Mono',monospace;
+    font-size:.65rem;
+    font-weight:700;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    padding:4px 14px;
+    border-radius:999px;
+  }

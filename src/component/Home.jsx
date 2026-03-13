@@ -5,6 +5,12 @@ import Hero from './Hero';
 import Features from './Features';
 import Community from './Community';
 import CTA from './CTA';
+import Stats from './Stats';
+import Output from './Output';
+import Algorithms from './Algorithms';
+import Platform from './Platform';
+import HowToUse from './HowToUse';
+import FAQ from './FAQ';
 
 
 const Home = () => {
@@ -12,9 +18,12 @@ const Home = () => {
     return (
        <div>
         <Hero></Hero>
-        <Features></Features>
-        <Community></Community>
-        <CTA></CTA>
+        <Stats></Stats>
+        <Platform></Platform>
+        <Output></Output>
+        <Algorithms></Algorithms>
+        <HowToUse></HowToUse>
+        <FAQ></FAQ>
        </div>
     );
 };

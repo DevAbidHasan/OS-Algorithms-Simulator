@@ -18,7 +18,7 @@ const Menu = () => {
   return (
     <>
       {/* NAVBAR */}
-      <nav className="h-[70px] w-full px-6 md:px-16 lg:px-24 xl:px-32 flex items-center justify-between bg-gradient-to-r from-indigo-700 to-violet-500 text-white shadow-lg relative z-40">
+      <nav className="h-[70px] w-full px-6 md:px-16 lg:px-24 xl:px-32 flex items-center justify-between bg-black text-white shadow-lg relative z-40">
 
         {/* Logo */}
         <Link
@@ -96,11 +96,16 @@ const Menu = () => {
         </ul>
 
         {/* Contact */}
-        <Link
+        {/* <Link
           to="about" onMouseEnter={() => setActiveMenu(null)}
-          className="btn hidden lg:flex btn-secondary w-[120px]"
+          className="btn hidden lg:flex btn-primary w-[120px]"
         >
           About
+        </Link> */}
+
+        <Link to="/about" onMouseEnter={() => setActiveMenu(null)}
+              className="bg-white hidden lg:flex text-indigo-700 font-bold px-8 py-2.5 rounded-full shadow-xl hover:scale-102 transition">
+              About
         </Link>
 
         {/* Mobile Button */}
@@ -278,8 +283,11 @@ const Menu = () => {
             )}
 
           </div>
-          <div className="btn btn-secondary w-full">
-            <Link to="/about">About</Link>
+          <div className=" w-full">
+            <Link to="/about"
+              className="bg-white flex text-lg items-center justify-center lg:hidden text-indigo-700 font-bold px-8 py-3 rounded-full shadow-xl hover:scale-102 transition">
+              <h2 className="">About</h2>
+        </Link>
           </div>
 
         </div>
