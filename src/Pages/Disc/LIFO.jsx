@@ -1,4 +1,3 @@
-// LIFO.jsx
 import React, { useState } from "react";
 import {
   LineChart,
@@ -13,25 +12,78 @@ import {
 // ── Worked example data ───────────────────────────────────────────────────────
 const EXAMPLES = [
   {
-    title: "Example 1 — Basic",
+    title: "Example 1 — Basic Stack (Last In, First Out)",
     head: 50,
     requests: [55, 58, 39, 18, 90, 160, 150, 38, 184],
     explanation: [
       "Head starts at cylinder 50.",
-      "Requests arrive in order: 55, 58, 39, 18, 90, 160, 150, 38, 184.",
-      "LIFO serves the LAST arrived request first, so service order is reversed: 184 → 38 → 150 → 160 → 90 → 18 → 39 → 58 → 55.",
-      "Total Seek Distance = |184-50|+|38-184|+|150-38|+|160-150|+|90-160|+|18-90|+|39-18|+|58-39|+|55-58| = 134+146+112+10+70+72+21+19+3 = 587 cylinders.",
+      "Requests arrive in order: 55 → 58 → 39 → 18 → 90 → 160 → 150 → 38 → 184.",
+      "Imagine a stack of plates. The last plate placed on top (184) is served first. This is LIFO.",
+      "Service order (reversed): 184 → 38 → 150 → 160 → 90 → 18 → 39 → 58 → 55.",
+      "The very first request (55) is served last. It waited the longest!",
+      "Step-by-step distances: |184-50|=134, |38-184|=146, |150-38|=112, |160-150|=10, |90-160|=70, |18-90|=72, |39-18|=21, |58-39|=19, |55-58|=3.",
+      "Total Seek Distance = 134+146+112+10+70+72+21+19+3 = 587 cylinders.",
+      "Compare to FIFO (458): LIFO is 28% worse because the reversed order causes huge jumps.",
     ],
   },
   {
-    title: "Example 2 — Head in the middle",
+    title: "Example 2 — Middle Head Position",
     head: 100,
     requests: [35, 180, 20, 140, 75],
     explanation: [
-      "Head starts at cylinder 100.",
-      "Requests arrive in order: 35, 180, 20, 140, 75.",
-      "LIFO reverses the queue: 75 → 140 → 20 → 180 → 35.",
-      "Total Seek Distance = |75-100|+|140-75|+|20-140|+|180-20|+|35-180| = 25+65+120+160+145 = 515 cylinders.",
+      "Head starts at cylinder 100 (middle of disk).",
+      "Requests arrive in order: 35 → 180 → 20 → 140 → 75.",
+      "Last request (most recent) is 75. It gets served first. Next is 140. Then 20, and so on.",
+      "Service order (reversed): 75 → 140 → 20 → 180 → 35.",
+      "The first request (35, from earliest) is served last. This is the starvation risk!",
+      "Step-by-step distances: |75-100|=25, |140-75|=65, |20-140|=120, |180-20|=160, |35-180|=145.",
+      "Total Seek Distance = 25+65+120+160+145 = 515 cylinders.",
+      "With just 5 requests, seek distance is already very high. LIFO is not good for optimization.",
+    ],
+  },
+  {
+    title: "Example 3 — All Requests on One Side",
+    head: 60,
+    requests: [10, 15, 20, 25, 30],
+    explanation: [
+      "Head starts at cylinder 60. All requests are BELOW the head (on the left).",
+      "Requests arrive: 10 → 15 → 20 → 25 → 30.",
+      "Last request (30) comes first. Most recent = highest priority in LIFO.",
+      "Service order (reversed): 30 → 25 → 20 → 15 → 10.",
+      "The head bounces back and forth between nearby cylinders (30, 25, 20, 15, 10).",
+      "Step-by-step distances: |30-60|=30, |25-30|=5, |20-25|=5, |15-20|=5, |10-15|=5.",
+      "Total Seek Distance = 30+5+5+5+5 = 50 cylinders.",
+      "When requests are close together, LIFO performs okay. But starvation still exists!",
+    ],
+  },
+  {
+    title: "Example 4 — Alternating High and Low Requests",
+    head: 50,
+    requests: [10, 100, 20, 90, 30],
+    explanation: [
+      "Head starts at cylinder 50. Requests alternate between low (10, 20, 30) and high (100, 90).",
+      "Requests arrive: 10 → 100 → 20 → 90 → 30 (last one).",
+      "LIFO serves in reverse: 30 → 90 → 20 → 100 → 10.",
+      "Notice: The head oscillates wildly between low and high cylinders!",
+      "Service order shows the oscillation problem of LIFO: it reverses the arrival order completely.",
+      "Step-by-step distances: |30-50|=20, |90-30|=60, |20-90|=70, |100-20|=80, |10-100|=90.",
+      "Total Seek Distance = 20+60+70+80+90 = 320 cylinders.",
+      "The reversed order causes the head to bounce around the disk inefficiently!",
+    ],
+  },
+  {
+    title: "Example 5 — Continuous Stream of Requests (Starvation Risk)",
+    head: 75,
+    requests: [40, 50, 60, 70, 80],
+    explanation: [
+      "Head starts at cylinder 75. Requests arrive in increasing order: 40 → 50 → 60 → 70 → 80.",
+      "In a real system, new requests keep arriving. LIFO always serves the newest first.",
+      "Current service order (reversed from arrival): 80 → 70 → 60 → 50 → 40.",
+      "In reality: If more requests keep coming (85, 90, 95...), the oldest request (40) may NEVER be served.",
+      "This is called STARVATION. Old requests wait forever while new ones are served.",
+      "Step-by-step distances: |80-75|=5, |70-80|=10, |60-70|=10, |50-60|=10, |40-50|=10.",
+      "Total Seek Distance = 5+10+10+10+10 = 45 cylinders.",
+      "Performance looks good here, but in reality, cylinder 40 could wait forever if new requests keep arriving!",
     ],
   },
 ];
@@ -56,7 +108,7 @@ function SeekBar({ sequence }) {
 
   return (
     <div className="mt-4">
-      <p className="font-semibold mb-3">Seek Path Visualisation:</p>
+      <p className="font-semibold mb-3 text-gray-700">Seek Path Visualisation:</p>
       <div className="relative h-10 bg-gray-100 rounded-lg border border-gray-300">
         <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-gray-300 -translate-y-1/2" />
         {sequence.slice(1).map((pos, i) => {
@@ -115,7 +167,7 @@ function StepTable({ sequence }) {
   let running = 0;
   return (
     <div className="mt-4 overflow-x-auto">
-      <p className="font-semibold mb-2">Step-by-step Seek Distances:</p>
+      <p className="font-semibold mb-2 text-gray-700">Step-by-step Seek Distances:</p>
       <table className="w-full text-left border border-gray-300 rounded-lg overflow-hidden text-sm">
         <thead className="bg-indigo-500 text-white">
           <tr>
@@ -156,6 +208,7 @@ function OrderComparison({ head, requests }) {
     <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
         <p className="font-semibold text-blue-700 mb-2 text-sm">📥 Arrival Order (as entered)</p>
+        <p className="text-xs text-gray-500 mb-2">First request to last request</p>
         <div className="flex gap-1 flex-wrap">
           {requests.map((r, i) => (
             <span key={i} className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-sm font-semibold">
@@ -166,6 +219,7 @@ function OrderComparison({ head, requests }) {
       </div>
       <div className="bg-green-50 border border-green-200 rounded-lg p-3">
         <p className="font-semibold text-green-700 mb-2 text-sm">⚙️ Service Order (LIFO reversed)</p>
+        <p className="text-xs text-gray-500 mb-2">Last request to first request</p>
         <div className="flex gap-1 flex-wrap">
           {serviceOrder.map((r, i) => (
             <span key={i} className="bg-green-100 text-green-700 px-2 py-1 rounded text-sm font-semibold">
@@ -190,7 +244,7 @@ function WorkedExample({ ex }) {
           Head: {ex.head}
         </span>
         {ex.requests.map((r, i) => (
-          <span key={i} className="bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold">
+          <span key={i} className="bg-blue-100 text-blue-700 px-2 py-1 rounded font-semibold text-xs">
             {r}
           </span>
         ))}
@@ -199,7 +253,7 @@ function WorkedExample({ ex }) {
       <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700 my-4">
         {ex.explanation.map((line, i) => <li key={i}>{line}</li>)}
       </ol>
-      <div className="h-52 bg-white border border-gray-200 rounded-lg p-3">
+      <div className="h-52 bg-white border border-gray-200 rounded-lg p-3 mb-4">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -245,12 +299,26 @@ const LIFO = () => {
     setSequence([headPos, ...reqArr.slice().reverse()]);
   };
 
+  const resetSimulation = () => {
+    setRequests("");
+    setHead("");
+    setSequence([]);
+    setRawRequests([]);
+    setError("");
+  };
+
   const data = sequence.map((pos, idx) => ({ name: `Step ${idx}`, position: pos }));
+
+  // Calculate total seek distance
+  let totalSeek = 0;
+  for (let i = 1; i < sequence.length; i++) {
+    totalSeek += Math.abs(sequence[i] - sequence[i - 1]);
+  }
 
   const tabs = [
     { key: "theory",   label: "📖 Theory"  },
     { key: "examples", label: "🔍 Examples" },
-    { key: "practice", label: "🧪 Practice" },
+    { key: "practice", label: "✏️ Practice" },
   ];
 
   return (
@@ -258,8 +326,8 @@ const LIFO = () => {
 
       <h1 className="text-3xl font-bold mb-2 text-indigo-700">LIFO Disk Scheduling</h1>
       <p className="text-gray-500 mb-6 text-center max-w-xl text-sm">
-        Last In, First Out — serves the most recently arrived request first.
-        Learn how it works, study worked examples, then try it yourself.
+        Last In, First Out — newest request gets served first. Simple but unfair to old requests.
+        Learn how it works, study examples, then try it yourself.
       </p>
 
       {/* Tab bar */}
@@ -287,27 +355,28 @@ const LIFO = () => {
               <span className="font-bold text-indigo-600">LIFO (Last In, First Out)</span> is a
               disk scheduling algorithm where the{" "}
               <span className="font-semibold">most recently arrived request is served first</span>.
-              It works like a stack — the last item pushed is the first item popped.
+              It works like a stack of plates — you take the plate from the top (the one placed
+              most recently), not from the bottom.
             </p>
             <p className="text-gray-700 leading-relaxed">
-              Think of a stack of plates: you always pick up the plate that was placed on top most
-              recently, not the one at the bottom of the pile.
+              Simple way to understand: Imagine requests arriving in a pile. The newest request
+              (on top) always gets picked first. The oldest request (at the bottom) has to wait.
             </p>
           </Section>
 
-          <Section title="LIFO vs FIFO — The Key Difference">
+          <Section title="LIFO vs FIFO — Easy Example">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="font-bold text-blue-700 mb-2">FIFO (First In, First Out)</p>
-                <p className="text-gray-600 mb-2">Arrival order: 55, 58, 39, 18, 90</p>
-                <p className="text-gray-700">Service order: <span className="font-semibold">55 → 58 → 39 → 18 → 90</span></p>
-                <p className="text-gray-500 mt-1 text-xs">Same as arrival — oldest request first.</p>
+                <p className="font-bold text-blue-700 mb-2">FIFO (Fair & Equal)</p>
+                <p className="text-gray-600 mb-2">Requests arrive: 55, 58, 39, 18, 90</p>
+                <p className="text-gray-700 mb-1">Serve in order: <span className="font-semibold">55 → 58 → 39 → 18 → 90</span></p>
+                <p className="text-gray-500 text-xs">Everyone gets treated the same way. First come, first served.</p>
               </div>
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="font-bold text-green-700 mb-2">LIFO (Last In, First Out)</p>
-                <p className="text-gray-600 mb-2">Arrival order: 55, 58, 39, 18, 90</p>
-                <p className="text-gray-700">Service order: <span className="font-semibold">90 → 18 → 39 → 58 → 55</span></p>
-                <p className="text-gray-500 mt-1 text-xs">Reversed — newest request first.</p>
+                <p className="font-bold text-green-700 mb-2">LIFO (Newest First)</p>
+                <p className="text-gray-600 mb-2">Requests arrive: 55, 58, 39, 18, 90</p>
+                <p className="text-gray-700 mb-1">Serve in order: <span className="font-semibold">90 → 18 → 39 → 58 → 55</span></p>
+                <p className="text-gray-500 text-xs">Newest request (90) goes first. Oldest request (55) goes last.</p>
               </div>
             </div>
           </Section>
@@ -315,12 +384,12 @@ const LIFO = () => {
           <Section title="How It Works — Step by Step">
             <ol className="space-y-3">
               {[
-                { n: 1, t: "Record the head start position.", d: "This is where the disk arm currently sits (e.g., cylinder 50)." },
-                { n: 2, t: "Collect all pending requests in a stack.", d: "Each new request is pushed onto the top of the stack." },
-                { n: 3, t: "Pop and serve the top of the stack.", d: "The last arrived request (top of stack) is served first." },
-                { n: 4, t: "Calculate seek distance for each move.", d: "Seek distance = |current − next|." },
-                { n: 5, t: "Repeat until all requests are served.", d: "Keep popping until the stack is empty." },
-                { n: 6, t: "Sum all individual distances.", d: "Total Seek Distance = Σ |position(i+1) − position(i)|." },
+                { n: 1, t: "Record the head start position.", d: "The disk arm starts at one place (e.g., cylinder 50)." },
+                { n: 2, t: "Collect all requests in arrival order.", d: "55, then 58, then 39, and so on." },
+                { n: 3, t: "Reverse the order (LIFO).", d: "Newest request goes first: 90, then 18, then 39..." },
+                { n: 4, t: "Serve requests one by one.", d: "Move the head to each request in the reversed order." },
+                { n: 5, t: "Calculate distance for each move.", d: "Distance = how many cylinders the head travels." },
+                { n: 6, t: "Sum all distances.", d: "Total Seek Distance = all the distances added together." },
               ].map(({ n, t, d }) => (
                 <li key={n} className="flex gap-3 items-start">
                   <span className="bg-indigo-500 text-white rounded-full w-7 h-7 flex items-center justify-center font-bold text-sm shrink-0">
@@ -335,49 +404,48 @@ const LIFO = () => {
             </ol>
           </Section>
 
-          <Section title="Key Formula">
+          <Section title="Key Rule">
             <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-center mb-4">
               <p className="text-lg font-bold text-indigo-700">
                 Service Order = Reverse of Arrival Order
               </p>
               <p className="text-sm text-gray-500 mt-1">
-                Total Seek Distance = Σ | position(i+1) − position(i) | applied to the reversed queue.
+                That's the simple rule. Just flip the queue upside down!
               </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <p className="font-bold text-green-700 mb-2">✅ Advantages</p>
                 <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
-                  <li>Simple to implement (just a stack)</li>
+                  <li>Super simple to build (just a stack)</li>
                   <li>Recent requests get fast response</li>
-                  <li>Good when latest requests are most important</li>
-                  <li>Low latency for burst workloads</li>
+                  <li>Good for urgent/new requests</li>
+                  <li>Very easy to understand</li>
                 </ul>
               </div>
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <p className="font-bold text-red-700 mb-2">❌ Disadvantages</p>
                 <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
-                  <li>Starvation — old requests may never be served</li>
-                  <li>Not fair to early-arriving requests</li>
-                  <li>Can be inefficient for seek distance</li>
-                  <li>Unpredictable for low-priority requests</li>
+                  <li>Old requests may NEVER be served (STARVATION)</li>
+                  <li>Very unfair to early requests</li>
+                  <li>Seek distance is usually high</li>
+                  <li>Poor performance overall</li>
                 </ul>
               </div>
             </div>
           </Section>
 
-          <Section title="The Starvation Problem">
-            <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4 text-sm text-gray-700">
-              <p className="font-bold text-yellow-700 mb-2">⚠️ Critical Drawback — Starvation</p>
-              <p className="mb-2">
-                In a real system, requests keep arriving continuously. Because LIFO always serves
-                the <span className="font-semibold">most recent</span> request first, older requests
-                at the bottom of the stack may wait indefinitely — this is called{" "}
-                <span className="font-semibold text-red-600">starvation</span>.
+          <Section title="The Big Problem — STARVATION">
+            <div className="bg-red-50 border border-red-300 rounded-lg p-4 text-sm text-gray-700">
+              <p className="font-bold text-red-700 mb-2">⚠️ STARVATION — Old Requests Never Get Served!</p>
+              <p className="mb-3">
+                Imagine you're the first person in line. You wait for service. But every time a new
+                person arrives, they get served before you. If new people keep coming, you might
+                <span className="font-bold text-red-600"> wait forever</span> and never get served.
               </p>
-              <p>
-                Example: If requests keep arriving after cylinder 90, the original request for
-                cylinder 55 (which arrived first) may never get served.
+              <p className="font-semibold text-gray-800">
+                Real example: Request for cylinder 55 arrives first. But if new requests (85, 90, 95...)
+                keep coming, cylinder 55 might never be served because LIFO always picks the newest!
               </p>
             </div>
           </Section>
@@ -388,24 +456,24 @@ const LIFO = () => {
                 <thead className="bg-indigo-500 text-white">
                   <tr>
                     <th className="px-4 py-2">Algorithm</th>
-                    <th className="px-4 py-2">Order of Service</th>
-                    <th className="px-4 py-2">Seek Performance</th>
-                    <th className="px-4 py-2">Starvation?</th>
+                    <th className="px-4 py-2">Service Order</th>
+                    <th className="px-4 py-2">Performance</th>
+                    <th className="px-4 py-2">Fair?</th>
                   </tr>
                 </thead>
                 <tbody>
                   {[
-                    ["FIFO / FCFS", "Arrival order",      "Poor",   "No" ],
-                    ["LIFO",        "Reverse arrival",     "Poor",   "Yes"],
-                    ["SSTF",        "Shortest seek first", "Good",   "Yes"],
-                    ["SCAN",        "Back and forth",      "Better", "No" ],
-                    ["C-SCAN",      "One direction only",  "Better", "No" ],
-                  ].map(([alg, ord, perf, starv], i) => (
+                    ["FIFO",   "First request first",      "Poor",   "Yes"  ],
+                    ["LIFO",   "Last request first",       "Poor",   "NO ❌"],
+                    ["SSTF",   "Closest request first",    "Good",   "NO ❌"],
+                    ["SCAN",   "Sweep back & forth",       "Better", "Yes"  ],
+                    ["LOOK",   "Smart sweep (no boundary)", "Better", "Yes"  ],
+                  ].map(([alg, ord, perf, fair], i) => (
                     <tr key={alg} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                       <td className={`px-4 py-2 font-semibold ${alg === "LIFO" ? "text-indigo-600" : "text-gray-700"}`}>{alg}</td>
                       <td className="px-4 py-2 text-gray-600">{ord}</td>
                       <td className="px-4 py-2 text-gray-600">{perf}</td>
-                      <td className={`px-4 py-2 font-semibold ${starv === "Yes" ? "text-red-500" : "text-green-600"}`}>{starv}</td>
+                      <td className={`px-4 py-2 font-bold ${fair === "Yes" ? "text-green-600" : "text-red-600"}`}>{fair}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -416,11 +484,12 @@ const LIFO = () => {
           <Section title="Quick Verification Checklist">
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-gray-700 space-y-2">
               {[
-                "✅ The first position in the sequence must equal the initial head position.",
-                "✅ The service order must be the exact reverse of the arrival order.",
-                "✅ Each distance = |next − current|. Always use absolute value — no negatives.",
-                "✅ Total = sum of all individual step distances.",
-                "✅ The last request served must be the one that arrived first.",
+                "✅ The first position = the head start position.",
+                "✅ The service order = exactly reversed arrival order.",
+                "✅ Distance = absolute value (always positive).",
+                "✅ Total = sum of all step distances.",
+                "✅ The first request to arrive is served LAST.",
+                "✅ The last request to arrive is served FIRST.",
               ].map((line, i) => <p key={i}>{line}</p>)}
             </div>
           </Section>
@@ -432,9 +501,9 @@ const LIFO = () => {
         <div className="w-full max-w-4xl">
           <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6 text-sm text-indigo-800">
             <p className="font-bold mb-1">💡 How to read these examples</p>
-            <p>Each example shows the arrival order (blue badges), the reversed LIFO service order
-               (green badges), a step-by-step breakdown, a line chart of head movement, a seek-path
-               bar, and a full distance table.</p>
+            <p>Each example shows arrival order (blue badges) vs service order (green badges).
+               Watch how the order reverses. See how the head bounces around inefficiently. Pay
+               attention to the starvation problem — how the oldest request suffers!</p>
           </div>
           {EXAMPLES.map((ex, i) => <WorkedExample key={i} ex={ex} />)}
         </div>
@@ -443,53 +512,104 @@ const LIFO = () => {
       {/* ══ PRACTICE ══ */}
       {activeTab === "practice" && (
         <>
-          <div className="w-full max-w-4xl bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6 text-sm text-indigo-800">
-            <p className="font-bold mb-1">🧪 Try it yourself</p>
-            <p>Enter your disk request queue in arrival order and the initial head position.
-               The simulator will reverse the queue (LIFO) and show the full result with a chart,
-               seek-path bar, and distance table.</p>
+          <div className="w-full max-w-4xl bg-blue-50 border border-blue-300 rounded-xl p-4 mb-6">
+            <p className="text-blue-700 font-bold mb-1">✏️ Try it yourself</p>
+            <p className="text-blue-700">
+              Enter your disk requests in arrival order (first to last). Then enter the head position.
+              The simulator will reverse the queue (that's LIFO) and show you the result. Watch how
+              the newest request gets served first!
+            </p>
           </div>
 
-          <div className="w-full max-w-2xl mb-4">
-            <label className="block mb-2 font-semibold">Disk Requests (comma separated)</label>
-            <input
-              type="text"
-              value={requests}
-              onChange={(e) => setRequests(e.target.value)}
-              placeholder="e.g., 55, 58, 39, 18, 90, 160, 150, 38, 184"
-              className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
-            />
-            <label className="block mb-2 font-semibold">Initial Head Position</label>
-            <input
-              type="number"
-              value={head}
-              onChange={(e) => setHead(e.target.value)}
-              placeholder="e.g., 50"
-              className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+          {/* Input Form Component */}
+          <div className="w-full max-w-4xl bg-white rounded-lg border border-gray-300 p-8 mb-6">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">Define Your Disk Request Queue</h3>
+
+            {/* Input Fields */}
+            <div className="space-y-6">
+              {/* Head Position Input */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">
+                  Initial Head Position
+                </label>
+                <input
+                  type="number"
+                  value={head}
+                  onChange={(e) => setHead(e.target.value)}
+                  placeholder="e.g., 50"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* Requests Input */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">
+                  Disk Requests (comma separated, in arrival order)
+                </label>
+                <input
+                  type="text"
+                  value={requests}
+                  onChange={(e) => setRequests(e.target.value)}
+                  placeholder="e.g., 55, 58, 39, 18, 90, 160, 150, 38, 184"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={resetSimulation}
+                className="px-6 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 font-semibold transition"
+              >
+                Reset
+              </button>
+            </div>
           </div>
 
+          {/* Simulate Button */}
           <button
             onClick={simulateLIFO}
-              className="w-full bg-green-500 text-white px-8 py-3 rounded-lg hover:bg-green-600 font-bold text-lg transition mb-6"
+            className="w-full max-w-4xl bg-green-500 text-white px-8 py-4 rounded-lg hover:bg-green-600 font-bold text-lg transition mb-6"
           >
             Simulate
           </button>
 
-          {error && <p className="text-red-500 font-semibold mb-4">{error}</p>}
+          {/* Error Message */}
+          {error && (
+            <p className="w-full max-w-4xl text-red-600 font-semibold bg-red-50 border border-red-200 p-4 rounded-lg mb-6">
+              {error}
+            </p>
+          )}
 
+          {/* Results */}
           {sequence.length > 0 && (
             <div className="w-full max-w-4xl space-y-4">
+              {/* Stats Cards */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-center">
+                  <p className="text-gray-600 text-sm font-semibold">Initial Head</p>
+                  <p className="text-3xl font-bold text-indigo-600 mt-1">{sequence[0]}</p>
+                </div>
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-center">
+                  <p className="text-gray-600 text-sm font-semibold">Total Requests</p>
+                  <p className="text-3xl font-bold text-indigo-600 mt-1">{sequence.length - 1}</p>
+                </div>
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-center">
+                  <p className="text-gray-600 text-sm font-semibold">Total Seek Distance</p>
+                  <p className="text-3xl font-bold text-indigo-600 mt-1">{totalSeek}</p>
+                </div>
+              </div>
 
               {/* Arrival vs service order */}
               <div className="bg-white p-4 rounded-lg border border-gray-300">
-                <p className="font-semibold mb-2">Arrival Order vs Service Order:</p>
+                <p className="font-semibold mb-3 text-gray-700">Arrival Order vs Service Order:</p>
                 <OrderComparison head={parseInt(head)} requests={rawRequests} />
               </div>
 
-              {/* Line chart */}
+              {/* Line Chart */}
               <div className="bg-white p-4 rounded-lg border border-gray-300 h-80">
-                <p className="font-semibold mb-2">Disk Head Movement:</p>
+                <p className="font-semibold mb-2 text-gray-700">Disk Head Movement:</p>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={data}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -510,14 +630,18 @@ const LIFO = () => {
 
               {/* Request sequence badges */}
               <div className="bg-white p-4 rounded-lg border border-gray-300">
-                <p className="font-semibold mb-2">Service Sequence (LIFO order):</p>
+                <p className="font-semibold mb-3 text-gray-700">Service Sequence (LIFO order):</p>
                 <div className="flex gap-2 flex-wrap">
                   {sequence.map((pos, idx) => (
                     <span
                       key={idx}
-                      className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-lg font-semibold"
+                      className={`px-3 py-2 rounded-lg font-semibold text-sm ${
+                        idx === 0 
+                          ? "bg-indigo-100 text-indigo-700" 
+                          : "bg-green-100 text-green-700"
+                      }`}
                     >
-                      {pos}
+                      {idx === 0 ? `Head: ${pos}` : pos}
                     </span>
                   ))}
                 </div>
