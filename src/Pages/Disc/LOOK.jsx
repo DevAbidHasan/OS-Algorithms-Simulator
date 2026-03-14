@@ -1,4 +1,3 @@
-// LOOK.jsx
 import React, { useState } from "react";
 import {
   LineChart,
@@ -13,7 +12,7 @@ import {
 // ── Worked example data ───────────────────────────────────────────────────────
 const EXAMPLES = [
   {
-    title: "Example 1 — Moving Up",
+    title: "Example 1 — Moving Up (Towards higher cylinders)",
     head: 50,
     requests: [55, 58, 39, 18, 90, 160, 150, 38, 184],
     direction: "up",
@@ -21,14 +20,16 @@ const EXAMPLES = [
       "Head starts at cylinder 50, moving UP.",
       "Split requests: LEFT of 50 → [39, 38, 18] | RIGHT of 50 → [55, 58, 90, 150, 160, 184].",
       "Moving UP first: serve right side in ascending order → 55 → 58 → 90 → 150 → 160 → 184.",
-      "LOOK stops at the last request (184). It does NOT travel to the disk boundary. This is the key LOOK rule.",
+      "Key difference from SCAN: After serving 184 (the last request going UP), check if there are requests on the left.",
+      "There ARE requests on the left → reverse direction immediately. NO unnecessary boundary travel!",
       "Reverse direction, now moving DOWN: serve left side in descending order → 39 → 38 → 18.",
-      "LOOK stops at the last request (18). It does NOT go all the way to 0.",
-      "Total Seek Distance = |55-50|+|58-55|+|90-58|+|150-90|+|160-150|+|184-160|+|39-184|+|38-39|+|18-38| = 5+3+32+60+10+24+145+1+20 = 300 cylinders.",
+      "Step-by-step: |55-50|=5, |58-55|=3, |90-58|=32, |150-90|=60, |160-150|=10, |184-160|=24, |39-184|=145, |38-39|=1, |18-38|=20.",
+      "Total Seek Distance = 5+3+32+60+10+24+145+1+20 = 300 cylinders.",
+      "Compare to SCAN (330): LOOK saves 30 cylinders (9% better)! No wasted boundary travel.",
     ],
   },
   {
-    title: "Example 2 — Moving Down",
+    title: "Example 2 — Moving Down (Towards lower cylinders)",
     head: 100,
     requests: [35, 180, 20, 140, 75, 10, 200],
     direction: "down",
@@ -36,27 +37,82 @@ const EXAMPLES = [
       "Head starts at cylinder 100, moving DOWN.",
       "Split requests: LEFT of 100 → [75, 35, 20, 10] | RIGHT of 100 → [140, 180, 200].",
       "Moving DOWN first: serve left side in descending order → 75 → 35 → 20 → 10.",
-      "LOOK stops at 10 (the last left request). It does NOT travel to cylinder 0.",
+      "After serving 10 (the last request going DOWN), check if there are requests on the right.",
+      "There ARE requests on the right → reverse direction immediately. Jump directly to 140, not to 0!",
       "Reverse direction, now moving UP: serve right side in ascending order → 140 → 180 → 200.",
-      "LOOK stops at 200 (the last right request). It does NOT travel beyond 200.",
-      "Total Seek Distance = |75-100|+|35-75|+|20-35|+|10-20|+|140-10|+|180-140|+|200-180| = 25+40+15+10+130+40+20 = 280 cylinders.",
+      "Step-by-step: |75-100|=25, |35-75|=40, |20-35|=15, |10-20|=10, |140-10|=130, |180-140|=40, |200-180|=20.",
+      "Total Seek Distance = 25+40+15+10+130+40+20 = 280 cylinders.",
+      "Compare to SCAN (300): LOOK saves 20 cylinders (7% better)! More efficient reversal.",
+    ],
+  },
+  {
+    title: "Example 3 — No Requests on Return Side",
+    head: 60,
+    requests: [10, 20, 30, 40, 50],
+    direction: "up",
+    explanation: [
+      "Head starts at cylinder 60, moving UP. All requests are BELOW the head!",
+      "Split requests: LEFT of 60 → [10, 20, 30, 40, 50] | RIGHT of 60 → (none).",
+      "Moving UP first: no requests on the right. Head continues up but finds nothing.",
+      "Key LOOK feature: Check if there are more requests in the direction of movement.",
+      "No more requests going UP → immediately reverse (don't go to boundary like SCAN).",
+      "Reverse direction, now moving DOWN: serve all left requests in descending order → 50 → 40 → 30 → 20 → 10.",
+      "Step-by-step: |50-60|=10 (immediate reversal, no boundary waste), |40-50|=10, |30-40|=10, |20-30|=10, |10-20|=10.",
+      "Total Seek Distance = 10+10+10+10+10+10 = 60 cylinders.",
+      "Compare to SCAN (230): LOOK saves 170 cylinders (74% better)! HUGE difference when one-sided!",
+    ],
+  },
+  {
+    title: "Example 4 — Clustered Requests with Early Reversal",
+    head: 50,
+    requests: [10, 15, 20, 80, 85, 90],
+    direction: "up",
+    explanation: [
+      "Head starts at cylinder 50, moving UP.",
+      "Split requests: LEFT of 50 → [10, 15, 20] | RIGHT of 50 → [80, 85, 90].",
+      "Moving UP first: serve right cluster in order → 80 → 85 → 90.",
+      "After 90, check if there are more requests going UP. No requests beyond 90.",
+      "LOOK reverses immediately (no boundary travel to 99/100/etc).",
+      "Reverse, moving DOWN: serve left cluster in descending order → 20 → 15 → 10.",
+      "Step-by-step: |80-50|=30, |85-80|=5, |90-85|=5, |20-90|=70, |15-20|=5, |10-15|=5.",
+      "Total Seek Distance = 30+5+5+70+5+5 = 120 cylinders.",
+      "LOOK is optimal here because clusters are well-defined. No wasted boundary moves.",
+    ],
+  },
+  {
+    title: "Example 5 — Symmetrical Requests Both Sides",
+    head: 50,
+    requests: [10, 20, 30, 70, 80, 90],
+    direction: "down",
+    explanation: [
+      "Head starts at cylinder 50, moving DOWN. Symmetrical distribution.",
+      "Split requests: LEFT of 50 → [10, 20, 30] | RIGHT of 50 → [70, 80, 90].",
+      "Moving DOWN first: serve left side in descending order → 30 → 20 → 10.",
+      "After 10, check if there are more requests going DOWN. No requests below 10.",
+      "LOOK reverses immediately to serve the right side.",
+      "Reverse, moving UP: serve right side in ascending order → 70 → 80 → 90.",
+      "Step-by-step: |30-50|=20, |20-30|=10, |10-20|=10, |70-10|=60, |80-70|=10, |90-80|=10.",
+      "Total Seek Distance = 20+10+10+60+10+10 = 120 cylinders.",
+      "LOOK handles symmetrical requests efficiently with early reversal when needed.",
     ],
   },
 ];
 
-// ── LOOK algorithm (reusable) ─────────────────────────────────────────────────
+// ── LOOK algorithm (reusable) ──────────────────────────────────────────────────
 function runLOOK(headPos, reqArr, direction) {
   const sorted = [...reqArr].sort((a, b) => a - b);
-  const seq    = [headPos];
-  const left   = sorted.filter((r) => r < headPos).reverse();
-  const right  = sorted.filter((r) => r >= headPos);
+  const seq = [headPos];
+  const left  = sorted.filter((r) => r < headPos).reverse();
+  const right = sorted.filter((r) => r >= headPos);
 
   if (direction === "up") {
+    // Move up, serve all right requests, then reverse and serve left
     seq.push(...right);
-    seq.push(...left);
+    seq.push(...left); // Direct reversal, no boundary
   } else {
+    // Move down, serve all left requests, then reverse and serve right
     seq.push(...left);
-    seq.push(...right);
+    seq.push(...right); // Direct reversal, no boundary
   }
   return seq;
 }
@@ -80,7 +136,7 @@ function SeekBar({ sequence }) {
   const pct = (v) => (v / max) * 100;
   return (
     <div className="mt-4">
-      <p className="font-semibold mb-3">Seek Path Visualisation:</p>
+      <p className="font-semibold mb-3 text-gray-700">Seek Path Visualisation:</p>
       <div className="relative h-10 bg-gray-100 rounded-lg border border-gray-300">
         <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-gray-300 -translate-y-1/2" />
         {sequence.slice(1).map((pos, i) => {
@@ -91,9 +147,8 @@ function SeekBar({ sequence }) {
           return (
             <div key={i} style={{
               position: "absolute", top: "50%",
-              left: `${left}%`, width: `${Math.max(width, 0.5)}%`,
-              height: 4,
-              background: `hsl(${(i * 47) % 360}, 70%, 55%)`,
+              left: `${left}%`, width: `${width}%`,
+              height: 4, background: `hsl(${(i * 47) % 360}, 70%, 55%)`,
               transform: "translateY(-50%)", borderRadius: 2, opacity: 0.75,
             }} />
           );
@@ -113,16 +168,9 @@ function SeekBar({ sequence }) {
         <span>0</span><span>{Math.round(max / 2)}</span><span>{max}</span>
       </div>
       <div className="flex gap-4 mt-2 text-xs text-gray-500">
-        <span className="flex items-center gap-1">
-          <span style={{width:10,height:10,borderRadius:"50%",background:"#4f46e5",display:"inline-block"}} /> Start position
-        </span>
-        <span className="flex items-center gap-1">
-          <span style={{width:10,height:10,borderRadius:"50%",background:"#10b981",display:"inline-block"}} /> Request served
-        </span>
+        <span className="flex items-center gap-1"><span style={{width:10,height:10,borderRadius:"50%",background:"#4f46e5",display:"inline-block"}} /> Start</span>
+        <span className="flex items-center gap-1"><span style={{width:10,height:10,borderRadius:"50%",background:"#10b981",display:"inline-block"}} /> Request</span>
       </div>
-      <p className="text-xs text-green-700 mt-1 font-semibold">
-        ✅ Notice: the head stops at the last request in each direction — no wasted travel to disk boundaries.
-      </p>
     </div>
   );
 }
@@ -133,7 +181,7 @@ function StepTable({ sequence }) {
   let running = 0;
   return (
     <div className="mt-4 overflow-x-auto">
-      <p className="font-semibold mb-2">Step-by-step Seek Distances:</p>
+      <p className="font-semibold mb-2 text-gray-700">Step-by-step Seek Distances:</p>
       <table className="w-full text-left border border-gray-300 rounded-lg overflow-hidden text-sm">
         <thead className="bg-indigo-500 text-white">
           <tr>
@@ -166,7 +214,7 @@ function StepTable({ sequence }) {
   );
 }
 
-// ── Left / Right split view ───────────────────────────────────────────────────
+// ── Split visualiser — left / right partition ─────────────────────────────────
 function SplitView({ head, requests, direction }) {
   if (!requests || requests.length === 0) return null;
   const left  = [...requests].filter((r) => r < head).sort((a, b) => b - a);
@@ -174,37 +222,23 @@ function SplitView({ head, requests, direction }) {
   return (
     <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className={`rounded-lg p-3 border ${direction === "down" ? "bg-green-50 border-green-300" : "bg-gray-50 border-gray-200"}`}>
-        <p className={`font-semibold text-sm mb-1 ${direction === "down" ? "text-green-700" : "text-gray-500"}`}>
+        <p className={`font-semibold text-sm mb-2 ${direction === "down" ? "text-green-700" : "text-gray-500"}`}>
           ⬇ LEFT of head ({head}) {direction === "down" ? "— served FIRST" : "— served SECOND"}
         </p>
-        {left.length > 0 && (
-          <p className="text-xs text-gray-400 mb-2">
-            Reversal point → cylinder <span className="font-bold">{left[left.length - 1]}</span> (last request, not 0)
-          </p>
-        )}
         <div className="flex gap-1 flex-wrap">
-          {left.length > 0
-            ? left.map((r, i) => (
-                <span key={i} className={`px-2 py-1 rounded text-sm font-semibold ${direction === "down" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{r}</span>
-              ))
-            : <span className="text-gray-400 text-sm">None</span>}
+          {left.length > 0 ? left.map((r, i) => (
+            <span key={i} className={`px-2 py-1 rounded text-sm font-semibold ${direction === "down" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{r}</span>
+          )) : <span className="text-gray-400 text-sm">None</span>}
         </div>
       </div>
       <div className={`rounded-lg p-3 border ${direction === "up" ? "bg-green-50 border-green-300" : "bg-gray-50 border-gray-200"}`}>
-        <p className={`font-semibold text-sm mb-1 ${direction === "up" ? "text-green-700" : "text-gray-500"}`}>
+        <p className={`font-semibold text-sm mb-2 ${direction === "up" ? "text-green-700" : "text-gray-500"}`}>
           ⬆ RIGHT of head ({head}) {direction === "up" ? "— served FIRST" : "— served SECOND"}
         </p>
-        {right.length > 0 && (
-          <p className="text-xs text-gray-400 mb-2">
-            Reversal point → cylinder <span className="font-bold">{right[right.length - 1]}</span> (last request, not max disk)
-          </p>
-        )}
         <div className="flex gap-1 flex-wrap">
-          {right.length > 0
-            ? right.map((r, i) => (
-                <span key={i} className={`px-2 py-1 rounded text-sm font-semibold ${direction === "up" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{r}</span>
-              ))
-            : <span className="text-gray-400 text-sm">None</span>}
+          {right.length > 0 ? right.map((r, i) => (
+            <span key={i} className={`px-2 py-1 rounded text-sm font-semibold ${direction === "up" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{r}</span>
+          )) : <span className="text-gray-400 text-sm">None</span>}
         </div>
       </div>
     </div>
@@ -231,7 +265,7 @@ function WorkedExample({ ex }) {
       <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700 my-4">
         {ex.explanation.map((line, i) => <li key={i}>{line}</li>)}
       </ol>
-      <div className="h-52 bg-white border border-gray-200 rounded-lg p-3">
+      <div className="h-52 bg-white border border-gray-200 rounded-lg p-3 mb-4">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -249,12 +283,12 @@ function WorkedExample({ ex }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 const LOOK = () => {
-  const [requests, setRequests]   = useState("");
-  const [head, setHead]           = useState("");
+  const [requests, setRequests] = useState("");
+  const [head, setHead]         = useState("");
   const [direction, setDirection] = useState("up");
-  const [sequence, setSequence]   = useState([]);
+  const [sequence, setSequence] = useState([]);
   const [rawRequests, setRawRequests] = useState([]);
-  const [error, setError]         = useState("");
+  const [error, setError]       = useState("");
   const [activeTab, setActiveTab] = useState("theory");
 
   const simulateLOOK = () => {
@@ -264,8 +298,8 @@ const LOOK = () => {
       return;
     }
     setError("");
-    const headPos = parseInt(head);
-    const reqArr  = requests.split(",").map((v) => parseInt(v.trim())).filter((v) => !isNaN(v));
+    const headPos  = parseInt(head);
+    const reqArr   = requests.split(",").map((v) => parseInt(v.trim())).filter((v) => !isNaN(v));
     if (reqArr.length === 0) {
       setError("Please enter valid comma-separated requests.");
       return;
@@ -274,12 +308,27 @@ const LOOK = () => {
     setSequence(runLOOK(headPos, reqArr, direction));
   };
 
+  const resetSimulation = () => {
+    setRequests("");
+    setHead("");
+    setDirection("up");
+    setSequence([]);
+    setRawRequests([]);
+    setError("");
+  };
+
   const data = sequence.map((pos, idx) => ({ name: `Step ${idx}`, position: pos }));
+
+  // Calculate total seek distance
+  let totalSeek = 0;
+  for (let i = 1; i < sequence.length; i++) {
+    totalSeek += Math.abs(sequence[i] - sequence[i - 1]);
+  }
 
   const tabs = [
     { key: "theory",   label: "📖 Theory"  },
     { key: "examples", label: "🔍 Examples" },
-    { key: "practice", label: "🧪 Practice" },
+    { key: "practice", label: "✏️ Practice" },
   ];
 
   return (
@@ -287,8 +336,8 @@ const LOOK = () => {
 
       <h1 className="text-3xl font-bold mb-2 text-indigo-700">LOOK Disk Scheduling</h1>
       <p className="text-gray-500 mb-6 text-center max-w-xl text-sm">
-        SCAN's smarter cousin — sweeps in one direction but stops at the last request, not the disk boundary.
-        Learn how it works, study examples, then try it yourself.
+        The Smart Elevator — only visits cylinders that have requests, no unnecessary boundary travel.
+        Learn how it works, study worked examples, then try it yourself.
       </p>
 
       {/* Tab bar */}
@@ -308,73 +357,32 @@ const LOOK = () => {
         <>
           <Section title="What is LOOK Disk Scheduling?">
             <p className="text-gray-700 leading-relaxed mb-3">
-              <span className="font-bold text-indigo-600">LOOK</span> works almost exactly like
-              SCAN — it moves the head in one direction, serves all requests along the way, then
-              reverses and serves the other side. But it has one important improvement:
+              <span className="font-bold text-indigo-600">LOOK</span>, also called{" "}
+              <span className="font-bold">C-LOOK</span> when applied bidirectionally, is a smarter
+              version of SCAN. Instead of always travelling to the disk boundary (0 or max cylinder),
+              the disk head only{" "}
+              <span className="font-semibold">looks ahead to see if there are more requests in the
+              current direction</span>. If not, it immediately reverses — eliminating unnecessary
+              boundary travel.
             </p>
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-3 text-sm">
-              <p className="font-bold text-indigo-700 mb-1">🔑 The Key Rule — "Look Before You Go"</p>
-              <p className="text-gray-700">
-                Instead of always travelling all the way to the disk boundary (cylinder 0 or max),
-                the head <span className="font-bold text-green-700">looks ahead and only goes as
-                far as the last pending request</span> in that direction. If there are no more
-                requests further ahead, it stops and reverses right there.
-              </p>
-            </div>
             <p className="text-gray-700 leading-relaxed">
-              Think of it like an elevator that only goes to the highest floor someone pressed —
-              it does not ride all the way to the top floor if nobody wants to go there.
+              Think of an elevator that <span className="font-semibold">doesn't always go to the
+              top floor</span> — it checks if anyone is waiting above, and if not, it reverses
+              direction immediately. Much more efficient!
             </p>
-          </Section>
-
-          <Section title="LOOK vs SCAN — The Only Difference">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-4">
-              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-                <p className="font-bold text-indigo-700 mb-2">SCAN (Elevator)</p>
-                <p className="text-gray-700 mb-2">
-                  Head goes UP, serves all requests, then travels all the way to
-                  the <span className="font-semibold">disk boundary (max cylinder)</span> before reversing.
-                </p>
-                <div className="bg-white rounded p-2 text-xs text-gray-500 border border-gray-200">
-                  Example: Head at 50, moving up, last request at 184, disk size 199.<br />
-                  SCAN travels: ... → 184 → <span className="font-bold text-red-500">199</span> → reverses<br />
-                  Wasted move: 184 → 199 = 15 cylinders with no requests
-                </div>
-              </div>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="font-bold text-green-700 mb-2">LOOK (Smarter SCAN)</p>
-                <p className="text-gray-700 mb-2">
-                  Head goes UP, serves all requests, then reverses at the
-                  <span className="font-semibold"> last pending request</span> — no wasted travel.
-                </p>
-                <div className="bg-white rounded p-2 text-xs text-gray-500 border border-gray-200">
-                  Example: Head at 50, moving up, last request at 184, no disk size needed.<br />
-                  LOOK travels: ... → <span className="font-bold text-green-600">184</span> → reverses<br />
-                  Saves: 15 cylinders of unnecessary travel
-                </div>
-              </div>
-            </div>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-gray-700">
-              <p className="font-bold text-yellow-700 mb-1">📌 Important Note</p>
-              <p>
-                Because LOOK does not need to go to the disk boundary, you do{" "}
-                <span className="font-semibold">not need to enter a disk size</span>. This makes
-                LOOK simpler to use than SCAN or C-SCAN in practice.
-              </p>
-            </div>
           </Section>
 
           <Section title="How It Works — Step by Step">
             <ol className="space-y-3">
               {[
-                { n: 1, t: "Note the head position and initial direction.", d: "e.g., Head at 50, moving Up." },
-                { n: 2, t: "Split requests into LEFT and RIGHT of the head.", d: "LEFT = cylinders below the head. RIGHT = cylinders at or above the head." },
-                { n: 3, t: "Serve the side matching your direction first.", d: "Moving Up → serve RIGHT in ascending order. Moving Down → serve LEFT in descending order." },
-                { n: 4, t: "Stop at the last request in that direction.", d: "Do NOT go to 0 or max disk cylinder. Just reverse at the last request." },
-                { n: 5, t: "Reverse direction.", d: "Now move the other way." },
-                { n: 6, t: "Serve the remaining requests on the return sweep.", d: "Serve them in the order of the new direction." },
-                { n: 7, t: "Stop again at the last request in this direction.", d: "No wasted travel in either direction." },
-                { n: 8, t: "Sum all seek distances.", d: "Total Seek Distance = Σ |next − current| for every move made." },
+                { n: 1, t: "Note the starting head position and initial direction.", d: "e.g., Head at 50, moving Up." },
+                { n: 2, t: "Split requests into LEFT and RIGHT of the head.", d: "LEFT = requests < head. RIGHT = requests ≥ head." },
+                { n: 3, t: "Serve requests in the direction of initial movement.", d: "Moving Up → serve RIGHT in ascending order. Moving Down → serve LEFT in descending order." },
+                { n: 4, t: "After serving the last request in that direction, LOOK AHEAD.", d: "Are there more requests beyond the last one I just served?" },
+                { n: 5, t: "If NO more requests ahead, immediately reverse direction.", d: "Don't go to boundary — waste avoided!" },
+                { n: 6, t: "If YES more requests ahead (rare), continue in the same direction.", d: "Keep moving toward the next cluster." },
+                { n: 7, t: "Serve remaining requests on the return sweep.", d: "These are on the other side of the original head position." },
+                { n: 8, t: "Sum all seek distances.", d: "No boundary costs — only actual request distances." },
               ].map(({ n, t, d }) => (
                 <li key={n} className="flex gap-3 items-start">
                   <span className="bg-indigo-500 text-white rounded-full w-7 h-7 flex items-center justify-center font-bold text-sm shrink-0">{n}</span>
@@ -387,80 +395,80 @@ const LOOK = () => {
             </ol>
           </Section>
 
-          <Section title="Direction Rules">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Section title="Key Formula & Direction Rules">
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-center mb-4">
+              <p className="text-lg font-bold text-indigo-700">
+                Total Seek Distance = Σ | position(i+1) − position(i) |
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                No boundary overhead — only counts actual request positions.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm">
                 <p className="font-bold text-green-700 mb-2">⬆ Initial Direction: UP</p>
                 <ol className="list-decimal list-inside space-y-1 text-gray-700">
-                  <li>Serve requests ≥ head (ascending order)</li>
-                  <li>Stop and reverse at the highest request</li>
-                  <li>Serve requests &lt; head (descending order)</li>
-                  <li>Stop at the lowest request</li>
+                  <li>Serve all requests ≥ head (ascending)</li>
+                  <li>After last request, check if more requests beyond it</li>
+                  <li>If NO → reverse immediately and serve requests &lt; head (descending)</li>
+                  <li>If YES (rare) → continue up to next cluster</li>
                 </ol>
               </div>
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 text-sm">
                 <p className="font-bold text-orange-700 mb-2">⬇ Initial Direction: DOWN</p>
                 <ol className="list-decimal list-inside space-y-1 text-gray-700">
-                  <li>Serve requests &lt; head (descending order)</li>
-                  <li>Stop and reverse at the lowest request</li>
-                  <li>Serve requests ≥ head (ascending order)</li>
-                  <li>Stop at the highest request</li>
+                  <li>Serve all requests &lt; head (descending)</li>
+                  <li>After last request, check if more requests beyond it</li>
+                  <li>If NO → reverse immediately and serve requests ≥ head (ascending)</li>
+                  <li>If YES (rare) → continue down to next cluster</li>
                 </ol>
               </div>
             </div>
-          </Section>
-
-          <Section title="Advantages & Disadvantages">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <p className="font-bold text-green-700 mb-2">✅ Advantages</p>
                 <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
-                  <li>No starvation — every request is served</li>
-                  <li>Better than SCAN — no wasted travel to boundaries</li>
-                  <li>Does not need disk size as input</li>
-                  <li>Good balance of fairness and seek performance</li>
-                  <li>Simple to implement and understand</li>
+                  <li>No starvation — all requests served fairly</li>
+                  <li>Eliminates boundary overhead of SCAN</li>
+                  <li>Better performance than SCAN in most cases</li>
+                  <li>Smarter reversal decision logic</li>
                 </ul>
               </div>
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <p className="font-bold text-red-700 mb-2">❌ Disadvantages</p>
                 <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
-                  <li>Requests just behind the head still wait a full sweep</li>
-                  <li>Not as uniform in wait time as C-LOOK</li>
-                  <li>Still serves both directions (unlike C-LOOK)</li>
-                  <li>Not globally optimal for seek distance</li>
+                  <li>Slightly more complex than SCAN</li>
+                  <li>Requires tracking maximum request position in each direction</li>
+                  <li>Requests just behind the head still wait a full sweep (like SCAN)</li>
+                  <li>Does not improve uniform wait times vs SCAN</li>
                 </ul>
               </div>
             </div>
           </Section>
 
-          <Section title="All Algorithms Compared">
+          <Section title="LOOK vs SCAN vs C-LOOK">
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left border border-gray-300 rounded-lg overflow-hidden">
                 <thead className="bg-indigo-500 text-white">
                   <tr>
                     <th className="px-4 py-2">Algorithm</th>
-                    <th className="px-4 py-2">Travels to boundary?</th>
-                    <th className="px-4 py-2">Starvation?</th>
-                    <th className="px-4 py-2">Needs disk size?</th>
-                    <th className="px-4 py-2">Seek Performance</th>
+                    <th className="px-4 py-2">Reversal Point</th>
+                    <th className="px-4 py-2">Efficiency</th>
+                    <th className="px-4 py-2">Complexity</th>
                   </tr>
                 </thead>
                 <tbody>
                   {[
-                    ["FIFO",   "No boundary",   "No",  "No",  "Poor"  ],
-                    ["SSTF",   "No boundary",   "Yes", "No",  "Good"  ],
-                    ["SCAN",   "Yes — always",  "No",  "Yes", "Better"],
-                    ["C-SCAN", "Yes — always",  "No",  "Yes", "Better"],
-                    ["LOOK",   "No — stops at last request", "No", "No", "Better"],
-                    ["C-LOOK", "No — stops at last request", "No", "No", "Better"],
-                  ].map(([alg, boundary, starv, needsSize, perf], i) => (
+                    ["FIFO",   "N/A (arrival order)", "Poor", "Very Simple"],
+                    ["SCAN",   "Always at boundary (0 or max)", "Better", "Simple"],
+                    ["LOOK",   "Last request in direction", "Better+", "Moderate"],
+                    ["C-LOOK", "Last request, one direction only", "Best", "Moderate"],
+                  ].map(([alg, rev, eff, comp], i) => (
                     <tr key={alg} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                       <td className={`px-4 py-2 font-semibold ${alg === "LOOK" ? "text-indigo-600" : "text-gray-700"}`}>{alg}</td>
-                      <td className={`px-4 py-2 text-sm ${boundary.startsWith("Yes") ? "text-red-500" : "text-green-600"}`}>{boundary}</td>
-                      <td className={`px-4 py-2 font-semibold ${starv === "Yes" ? "text-red-500" : "text-green-600"}`}>{starv}</td>
-                      <td className={`px-4 py-2 font-semibold ${needsSize === "Yes" ? "text-orange-500" : "text-green-600"}`}>{needsSize}</td>
-                      <td className="px-4 py-2 text-gray-600">{perf}</td>
+                      <td className="px-4 py-2 text-gray-600">{rev}</td>
+                      <td className={`px-4 py-2 ${alg === "LOOK" ? "text-green-600 font-semibold" : "text-gray-600"}`}>{eff}</td>
+                      <td className="px-4 py-2 text-gray-600">{comp}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -468,16 +476,33 @@ const LOOK = () => {
             </div>
           </Section>
 
+          <Section title="LOOK vs SCAN: Real Example">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                <p className="font-bold text-indigo-700 mb-2">❌ SCAN Approach</p>
+                <p className="text-gray-700 mb-2">Head at 50, requests [10, 20, 30, 40, 50], moving UP.</p>
+                <p className="font-semibold text-gray-700 mb-1">Path: 50 → (no requests UP) → 199 (boundary) → 40 → 30 → 20 → 10</p>
+                <p className="text-gray-500">Total: ~250 cylinders (includes 150 cylinder boundary waste)</p>
+              </div>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p className="font-bold text-green-700 mb-2">✅ LOOK Approach</p>
+                <p className="text-gray-700 mb-2">Head at 50, requests [10, 20, 30, 40, 50], moving UP.</p>
+                <p className="font-semibold text-gray-700 mb-1">Path: 50 → (check UP: no more requests) → reverse → 40 → 30 → 20 → 10</p>
+                <p className="text-gray-500">Total: ~60 cylinders (saves 190 cylinders!) 🎯</p>
+              </div>
+            </div>
+          </Section>
+
           <Section title="Quick Verification Checklist">
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-gray-700 space-y-2">
               {[
                 "✅ First position = initial head position.",
-                "✅ If direction is UP: serve all requests ≥ head in ascending order, then serve all requests < head in descending order.",
-                "✅ If direction is DOWN: serve all requests < head in descending order, then serve all requests ≥ head in ascending order.",
-                "✅ The sequence must NOT include 0 or a disk boundary — LOOK never travels past the last request.",
-                "✅ The reversal point = the last request in the initial direction (not a boundary value).",
+                "✅ Requests are split: LEFT (< head) and RIGHT (≥ head).",
+                "✅ If direction UP: serve RIGHT in ascending order, then LEFT in descending.",
+                "✅ If direction DOWN: serve LEFT in descending order, then RIGHT in ascending.",
+                "✅ NO boundary stops (0 or max). The head reverses at the last actual request.",
                 "✅ Each distance = |next − current|. Always absolute value.",
-                "✅ Total = sum of all individual step distances.",
+                "✅ Total = sum of all step distances. Should be notably less than SCAN for asymmetrical requests.",
               ].map((line, i) => <p key={i}>{line}</p>)}
             </div>
           </Section>
@@ -489,10 +514,9 @@ const LOOK = () => {
         <div className="w-full max-w-4xl">
           <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6 text-sm text-indigo-800">
             <p className="font-bold mb-1">💡 How to read these examples</p>
-            <p>Each example shows the LEFT/RIGHT split of requests. Notice the reversal point
-               shown in each group — it is the <span className="font-semibold">last request</span>,
-               not a disk boundary. The seek-path bar shows no dot at 0 or max disk — only at
-               actual request positions.</p>
+            <p>Each example shows the LEFT/RIGHT split, initial direction, step-by-step explanation with
+               performance insights, a line chart, a seek-path bar, and a distance table. Compare each LOOK
+               result to SCAN to see the efficiency gains!</p>
           </div>
           {EXAMPLES.map((ex, i) => <WorkedExample key={i} ex={ex} />)}
         </div>
@@ -501,63 +525,119 @@ const LOOK = () => {
       {/* ══ PRACTICE ══ */}
       {activeTab === "practice" && (
         <>
-          <div className="w-full max-w-4xl bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6 text-sm text-indigo-800">
-            <p className="font-bold mb-1">🧪 Try it yourself</p>
-            <p>Enter your disk requests, head position, and direction. No disk size needed —
-               LOOK automatically stops at the last request in each direction. The simulator
-               will show the left/right split with reversal points, chart, seek-path bar, and
-               distance table.</p>
+          <div className="w-full max-w-4xl bg-blue-50 border border-blue-300 rounded-xl p-4 mb-6">
+            <p className="text-blue-700 font-bold mb-1">✏️ Try it yourself</p>
+            <p className="text-blue-700">
+              Enter your disk requests, head position, and initial direction. The simulator will apply
+              LOOK and show a split view, chart, and distance table. Watch how LOOK avoids unnecessary
+              boundary travel!
+            </p>
           </div>
 
-          <div className="w-full max-w-2xl mb-4">
-            <label className="block mb-2 font-semibold">Disk Requests (comma separated)</label>
-            <input
-              type="text"
-              value={requests}
-              onChange={(e) => setRequests(e.target.value)}
-              placeholder="e.g., 55, 58, 39, 18, 90, 160, 150, 38, 184"
-              className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
-            />
-            <label className="block mb-2 font-semibold">Initial Head Position</label>
-            <input
-              type="number"
-              value={head}
-              onChange={(e) => setHead(e.target.value)}
-              placeholder="e.g., 50"
-              className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
-            />
-            <label className="block mb-2 font-semibold">Initial Head Direction</label>
-            <select
-              value={direction}
-              onChange={(e) => setDirection(e.target.value)}
-              className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="up">⬆ Up (towards higher cylinders)</option>
-              <option value="down">⬇ Down (towards lower cylinders)</option>
-            </select>
+          {/* Input Form Component */}
+          <div className="w-full max-w-4xl bg-white rounded-lg border border-gray-300 p-8 mb-6">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">Define Your Disk Request Queue</h3>
+
+            {/* Input Fields */}
+            <div className="space-y-6">
+              {/* Head Position Input */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">
+                  Initial Head Position
+                </label>
+                <input
+                  type="number"
+                  value={head}
+                  onChange={(e) => setHead(e.target.value)}
+                  placeholder="e.g., 50"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* Direction Selection */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">
+                  Initial Head Direction
+                </label>
+                <select
+                  value={direction}
+                  onChange={(e) => setDirection(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="up">⬆ Up (towards higher cylinders)</option>
+                  <option value="down">⬇ Down (towards lower cylinders)</option>
+                </select>
+              </div>
+
+              {/* Requests Input */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">
+                  Disk Requests (comma separated)
+                </label>
+                <input
+                  type="text"
+                  value={requests}
+                  onChange={(e) => setRequests(e.target.value)}
+                  placeholder="e.g., 55, 58, 39, 18, 90, 160, 150, 38, 184"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={resetSimulation}
+                className="px-6 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 font-semibold transition"
+              >
+                Reset
+              </button>
+            </div>
           </div>
 
+          {/* Simulate Button */}
           <button
             onClick={simulateLOOK}
-            className="mb-6 bg-green-500 text-white px-8 py-3 rounded-lg hover:bg-green-600 transition"
+            className="w-full max-w-4xl bg-green-500 text-white px-8 py-4 rounded-lg hover:bg-green-600 font-bold text-lg transition mb-6"
           >
             Simulate
           </button>
 
-          {error && <p className="text-red-500 font-semibold mb-4">{error}</p>}
+          {/* Error Message */}
+          {error && (
+            <p className="w-full max-w-4xl text-red-600 font-semibold bg-red-50 border border-red-200 p-4 rounded-lg mb-6">
+              {error}
+            </p>
+          )}
 
+          {/* Results */}
           {sequence.length > 0 && (
             <div className="w-full max-w-4xl space-y-4">
+              {/* Stats Cards */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-center">
+                  <p className="text-gray-600 text-sm font-semibold">Initial Head</p>
+                  <p className="text-3xl font-bold text-indigo-600 mt-1">{sequence[0]}</p>
+                </div>
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-center">
+                  <p className="text-gray-600 text-sm font-semibold">Total Requests</p>
+                  <p className="text-3xl font-bold text-indigo-600 mt-1">{sequence.length - 1}</p>
+                </div>
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-center">
+                  <p className="text-gray-600 text-sm font-semibold">Total Seek Distance</p>
+                  <p className="text-3xl font-bold text-indigo-600 mt-1">{totalSeek}</p>
+                </div>
+              </div>
 
               {/* Split view */}
               <div className="bg-white p-4 rounded-lg border border-gray-300">
-                <p className="font-semibold mb-2">Left / Right Split Around Head:</p>
+                <p className="font-semibold mb-3 text-gray-700">Left / Right Split Around Head:</p>
                 <SplitView head={parseInt(head)} requests={rawRequests} direction={direction} />
               </div>
 
-              {/* Line chart */}
+              {/* Line Chart */}
               <div className="bg-white p-4 rounded-lg border border-gray-300 h-80">
-                <p className="font-semibold mb-2">Disk Head Movement:</p>
+                <p className="font-semibold mb-2 text-gray-700">Disk Head Movement:</p>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={data}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -568,27 +648,25 @@ const LOOK = () => {
                 </ResponsiveContainer>
               </div>
 
-              {/* Sequence badges */}
+              {/* Request Sequence Badges */}
               <div className="bg-white p-4 rounded-lg border border-gray-300">
-                <p className="font-semibold mb-2">Service Sequence (LOOK order):</p>
+                <p className="font-semibold mb-3 text-gray-700">Service Sequence (LOOK order):</p>
                 <div className="flex gap-2 flex-wrap">
                   {sequence.map((pos, idx) => (
-                    <span key={idx} className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-lg font-semibold">
+                    <span key={idx}
+                      className="px-3 py-2 rounded-lg font-semibold text-sm bg-indigo-100 text-indigo-700">
                       {pos}
                     </span>
                   ))}
                 </div>
-                <p className="text-xs text-green-700 mt-2 font-semibold">
-                  ✅ No 0 or disk boundary in the sequence — LOOK only visits real request positions.
-                </p>
               </div>
 
-              {/* Seek bar */}
+              {/* Seek Bar */}
               <div className="bg-white p-4 rounded-lg border border-gray-300">
                 <SeekBar sequence={sequence} />
               </div>
 
-              {/* Step table */}
+              {/* Step Table */}
               <div className="bg-white p-4 rounded-lg border border-gray-300">
                 <StepTable sequence={sequence} />
               </div>

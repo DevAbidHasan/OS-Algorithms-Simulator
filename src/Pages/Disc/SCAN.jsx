@@ -1,4 +1,3 @@
-// SCAN.jsx
 import React, { useState } from "react";
 import {
   LineChart,
@@ -19,12 +18,14 @@ const EXAMPLES = [
     diskSize: 199,
     direction: "up",
     explanation: [
-      "Head starts at cylinder 50, moving UP. Disk size = 199.",
+      "Head starts at cylinder 50, moving UP. Disk size = 199 (max boundary).",
       "Split requests: LEFT of 50 → [39, 38, 18] | RIGHT of 50 → [55, 58, 90, 150, 160, 184].",
       "Moving UP first: serve right side in ascending order → 55 → 58 → 90 → 150 → 160 → 184.",
-      "Reach the end of the disk: → 199 (boundary).",
+      "Reach the end of the disk: move to boundary 199.",
       "Reverse direction, now moving DOWN: serve left side in descending order → 39 → 38 → 18.",
-      "Total Seek Distance = |55-50|+|58-55|+|90-58|+|150-90|+|160-150|+|184-160|+|199-184|+|39-199|+|38-39|+|18-38| = 5+3+32+60+10+24+15+160+1+20 = 330 cylinders.",
+      "Step-by-step distances: |55-50|=5, |58-55|=3, |90-58|=32, |150-90|=60, |160-150|=10, |184-160|=24, |199-184|=15, |39-199|=160, |38-39|=1, |18-38|=20.",
+      "Total Seek Distance = 5+3+32+60+10+24+15+160+1+20 = 330 cylinders.",
+      "Compare to FIFO (458 cylinders): SCAN is 28% better! The elevator pattern reduces oscillation.",
     ],
   },
   {
@@ -34,12 +35,65 @@ const EXAMPLES = [
     diskSize: 200,
     direction: "down",
     explanation: [
-      "Head starts at cylinder 100, moving DOWN. Disk size = 200.",
+      "Head starts at cylinder 100, moving DOWN. Disk size = 200 (max boundary).",
       "Split requests: LEFT of 100 → [75, 35, 20, 10] | RIGHT of 100 → [140, 180, 200].",
       "Moving DOWN first: serve left side in descending order → 75 → 35 → 20 → 10.",
-      "Reach the start of the disk: → 0 (boundary).",
+      "Reach the bottom: move to boundary 0.",
       "Reverse direction, now moving UP: serve right side in ascending order → 140 → 180 → 200.",
-      "Total Seek Distance = |75-100|+|35-75|+|20-35|+|10-20|+|0-10|+|140-0|+|180-140|+|200-180| = 25+40+15+10+10+140+40+20 = 300 cylinders.",
+      "Step-by-step distances: |75-100|=25, |35-75|=40, |20-35|=15, |10-20|=10, |0-10|=10, |140-0|=140, |180-140|=40, |200-180|=20.",
+      "Total Seek Distance = 25+40+15+10+10+140+40+20 = 300 cylinders.",
+      "Compare to FIFO (810 cylinders): SCAN is 63% better! Major improvement when requests are spread out.",
+    ],
+  },
+  {
+    title: "Example 3 — Clustered Requests with Direction Up",
+    head: 25,
+    requests: [10, 15, 20, 80, 85, 90, 95],
+    diskSize: 100,
+    direction: "up",
+    explanation: [
+      "Head starts at cylinder 25, moving UP. Disk size = 100.",
+      "Split requests: LEFT of 25 → [10, 15, 20] | RIGHT of 25 → [80, 85, 90, 95].",
+      "Moving UP first: serve right cluster in order → 80 → 85 → 90 → 95.",
+      "Reach boundary: move to 100.",
+      "Reverse, now moving DOWN: serve left cluster in descending order → 20 → 15 → 10.",
+      "Key insight: Requests are naturally grouped. SCAN handles both clusters efficiently.",
+      "Step-by-step: |80-25|=55, |85-80|=5, |90-85|=5, |95-90|=5, |100-95|=5, |20-100|=80, |15-20|=5, |10-15|=5.",
+      "Total Seek Distance = 55+5+5+5+5+80+5+5 = 165 cylinders. Very efficient!",
+    ],
+  },
+  {
+    title: "Example 4 — No Requests on One Side",
+    head: 60,
+    requests: [10, 20, 30, 40, 50],
+    diskSize: 150,
+    direction: "up",
+    explanation: [
+      "Head starts at cylinder 60, moving UP. All requests are BELOW the head!",
+      "Split requests: LEFT of 60 → [10, 20, 30, 40, 50] | RIGHT of 60 → (none).",
+      "Moving UP first: no requests on the right, but still move to boundary 150.",
+      "This is key: SCAN always goes to the boundary, even if no requests there.",
+      "Reverse at 150, now moving DOWN: serve all left requests in descending order → 50 → 40 → 30 → 20 → 10.",
+      "Step-by-step: |150-60|=90, |50-150|=100, |40-50|=10, |30-40|=10, |20-30|=10, |10-20|=10.",
+      "Total Seek Distance = 90+100+10+10+10+10 = 230 cylinders.",
+      "Even with one-sided requests, SCAN handles it uniformly. This is better than SSTF which would stick to one side.",
+    ],
+  },
+  {
+    title: "Example 5 — Small Disk with Dense Requests",
+    head: 50,
+    requests: [10, 30, 60, 75, 85],
+    diskSize: 99,
+    direction: "down",
+    explanation: [
+      "Head starts at cylinder 50, moving DOWN. Small disk (99 max), well-distributed requests.",
+      "Split requests: LEFT of 50 → [10, 30] | RIGHT of 50 → [60, 75, 85].",
+      "Moving DOWN first: serve left side in descending order → 30 → 10.",
+      "Reach bottom: move to boundary 0.",
+      "Reverse, now moving UP: serve right side in ascending order → 60 → 75 → 85.",
+      "Step-by-step: |30-50|=20, |10-30|=20, |0-10|=10, |60-0|=60, |75-60|=15, |85-75|=10.",
+      "Total Seek Distance = 20+20+10+60+15+10 = 135 cylinders.",
+      "All requests served in a predictable sweep. No starvation, no request waits more than one full cycle.",
     ],
   },
 ];
@@ -82,7 +136,7 @@ function SeekBar({ sequence, diskSize }) {
   const pct = (v) => (v / max) * 100;
   return (
     <div className="mt-4">
-      <p className="font-semibold mb-3">Seek Path Visualisation:</p>
+      <p className="font-semibold mb-3 text-gray-700">Seek Path Visualisation:</p>
       <div className="relative h-10 bg-gray-100 rounded-lg border border-gray-300">
         <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-gray-300 -translate-y-1/2" />
         {sequence.slice(1).map((pos, i) => {
@@ -128,7 +182,7 @@ function StepTable({ sequence }) {
   let running = 0;
   return (
     <div className="mt-4 overflow-x-auto">
-      <p className="font-semibold mb-2">Step-by-step Seek Distances:</p>
+      <p className="font-semibold mb-2 text-gray-700">Step-by-step Seek Distances:</p>
       <table className="w-full text-left border border-gray-300 rounded-lg overflow-hidden text-sm">
         <thead className="bg-indigo-500 text-white">
           <tr>
@@ -143,7 +197,6 @@ function StepTable({ sequence }) {
           {sequence.slice(1).map((pos, i) => {
             const dist = Math.abs(pos - sequence[i]);
             running += dist;
-            const isBoundary = pos === 0 || (i > 0 && pos > sequence[i - 1 < 0 ? 0 : i] && sequence.slice(i + 2).length > 0 && sequence[i + 2] < pos);
             return (
               <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
                 <td className="px-4 py-2 font-semibold text-indigo-600">{i + 1}</td>
@@ -152,8 +205,6 @@ function StepTable({ sequence }) {
                 <td className="px-4 py-2 text-xs text-gray-500">
                   {pos === 0
                     ? <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded font-semibold">Boundary (0)</span>
-                    : sequence.indexOf(pos) === sequence.lastIndexOf(pos) && (sequence[sequence.indexOf(pos) + 1] < pos || sequence[sequence.indexOf(pos) - 1] < pos) && i === sequence.length - 2
-                    ? ""
                     : ""}
                 </td>
                 <td className="px-4 py-2 font-semibold">{dist}</td>
@@ -222,7 +273,7 @@ function WorkedExample({ ex }) {
       <ol className="list-decimal list-inside space-y-1 text-sm text-gray-700 my-4">
         {ex.explanation.map((line, i) => <li key={i}>{line}</li>)}
       </ol>
-      <div className="h-52 bg-white border border-gray-200 rounded-lg p-3">
+      <div className="h-52 bg-white border border-gray-200 rounded-lg p-3 mb-4">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data}>
             <CartesianGrid strokeDasharray="3 3" />
@@ -267,12 +318,28 @@ const SCAN = () => {
     setSequence(runSCAN(headPos, reqArr, maxDisk, direction));
   };
 
+  const resetSimulation = () => {
+    setRequests("");
+    setHead("");
+    setDiskSize("");
+    setDirection("up");
+    setSequence([]);
+    setRawRequests([]);
+    setError("");
+  };
+
   const data = sequence.map((pos, idx) => ({ name: `Step ${idx}`, position: pos }));
+
+  // Calculate total seek distance
+  let totalSeek = 0;
+  for (let i = 1; i < sequence.length; i++) {
+    totalSeek += Math.abs(sequence[i] - sequence[i - 1]);
+  }
 
   const tabs = [
     { key: "theory",   label: "📖 Theory"  },
     { key: "examples", label: "🔍 Examples" },
-    { key: "practice", label: "🧪 Practice" },
+    { key: "practice", label: "✏️ Practice" },
   ];
 
   return (
@@ -471,70 +538,133 @@ const SCAN = () => {
       {/* ══ PRACTICE ══ */}
       {activeTab === "practice" && (
         <>
-          <div className="w-full max-w-4xl bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6 text-sm text-indigo-800">
-            <p className="font-bold mb-1">🧪 Try it yourself</p>
-            <p>Enter your disk requests, head position, disk size, and initial direction. The
-               simulator will apply SCAN and show a split view, chart, seek-path bar, and distance
-               table so you can trace every step.</p>
+          <div className="w-full max-w-4xl bg-blue-50 border border-blue-300 rounded-xl p-4 mb-6">
+            <p className="text-blue-700 font-bold mb-1">✏️ Try it yourself</p>
+            <p className="text-blue-700">
+              Enter your disk requests, head position, disk size, and initial direction. The
+              simulator will apply SCAN and show a split view, chart, seek-path bar, and distance
+              table so you can trace every step.
+            </p>
           </div>
 
-          <div className="w-full max-w-2xl mb-4">
-            <label className="block mb-2 font-semibold">Disk Requests (comma separated)</label>
-            <input
-              type="text"
-              value={requests}
-              onChange={(e) => setRequests(e.target.value)}
-              placeholder="e.g., 55, 58, 39, 18, 90, 160, 150, 38, 184"
-              className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
-            />
-            <label className="block mb-2 font-semibold">Initial Head Position</label>
-            <input
-              type="number"
-              value={head}
-              onChange={(e) => setHead(e.target.value)}
-              placeholder="e.g., 50"
-              className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
-            />
-            <label className="block mb-2 font-semibold">Disk Size (Max Cylinder)</label>
-            <input
-              type="number"
-              value={diskSize}
-              onChange={(e) => setDiskSize(e.target.value)}
-              placeholder="e.g., 199"
-              className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-4"
-            />
-            <label className="block mb-2 font-semibold">Initial Head Direction</label>
-            <select
-              value={direction}
-              onChange={(e) => setDirection(e.target.value)}
-              className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="up">⬆ Up (towards higher cylinders)</option>
-              <option value="down">⬇ Down (towards lower cylinders)</option>
-            </select>
+          {/* Input Form Component */}
+          <div className="w-full max-w-4xl bg-white rounded-lg border border-gray-300 p-8 mb-6">
+            <h3 className="text-2xl font-bold text-gray-800 mb-6">Define Your Disk Request Queue</h3>
+
+            {/* Input Fields */}
+            <div className="space-y-6">
+              {/* Head Position Input */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">
+                  Initial Head Position
+                </label>
+                <input
+                  type="number"
+                  value={head}
+                  onChange={(e) => setHead(e.target.value)}
+                  placeholder="e.g., 50"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* Disk Size Input */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">
+                  Disk Size (Max Cylinder)
+                </label>
+                <input
+                  type="number"
+                  value={diskSize}
+                  onChange={(e) => setDiskSize(e.target.value)}
+                  placeholder="e.g., 199"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* Direction Selection */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">
+                  Initial Head Direction
+                </label>
+                <select
+                  value={direction}
+                  onChange={(e) => setDirection(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="up">⬆ Up (towards higher cylinders)</option>
+                  <option value="down">⬇ Down (towards lower cylinders)</option>
+                </select>
+              </div>
+
+              {/* Requests Input */}
+              <div>
+                <label className="block text-gray-700 font-semibold mb-2">
+                  Disk Requests (comma separated)
+                </label>
+                <input
+                  type="text"
+                  value={requests}
+                  onChange={(e) => setRequests(e.target.value)}
+                  placeholder="e.g., 55, 58, 39, 18, 90, 160, 150, 38, 184"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={resetSimulation}
+                className="px-6 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500 font-semibold transition"
+              >
+                Reset
+              </button>
+            </div>
           </div>
 
+          {/* Simulate Button */}
           <button
             onClick={simulateSCAN}
-            className="mb-6 bg-green-500 text-white px-8 py-3 rounded-lg hover:bg-green-600 transition"
+            className="w-full max-w-4xl bg-green-500 text-white px-8 py-4 rounded-lg hover:bg-green-600 font-bold text-lg transition mb-6"
           >
             Simulate
           </button>
 
-          {error && <p className="text-red-500 font-semibold mb-4">{error}</p>}
+          {/* Error Message */}
+          {error && (
+            <p className="w-full max-w-4xl text-red-600 font-semibold bg-red-50 border border-red-200 p-4 rounded-lg mb-6">
+              {error}
+            </p>
+          )}
 
+          {/* Results */}
           {sequence.length > 0 && (
             <div className="w-full max-w-4xl space-y-4">
+              {/* Stats Cards */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-center">
+                  <p className="text-gray-600 text-sm font-semibold">Initial Head</p>
+                  <p className="text-3xl font-bold text-indigo-600 mt-1">{sequence[0]}</p>
+                </div>
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-center">
+                  <p className="text-gray-600 text-sm font-semibold">Total Requests</p>
+                  <p className="text-3xl font-bold text-indigo-600 mt-1">{sequence.length - 2}</p>
+                </div>
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-center">
+                  <p className="text-gray-600 text-sm font-semibold">Total Seek Distance</p>
+                  <p className="text-3xl font-bold text-indigo-600 mt-1">{totalSeek}</p>
+                </div>
+              </div>
 
               {/* Split view */}
               <div className="bg-white p-4 rounded-lg border border-gray-300">
-                <p className="font-semibold mb-2">Left / Right Split Around Head:</p>
+                <p className="font-semibold mb-3 text-gray-700">Left / Right Split Around Head:</p>
                 <SplitView head={parseInt(head)} requests={rawRequests} direction={direction} />
               </div>
 
-              {/* Line chart */}
+              {/* Line Chart */}
               <div className="bg-white p-4 rounded-lg border border-gray-300 h-80">
-                <p className="font-semibold mb-2">Disk Head Movement:</p>
+                <p className="font-semibold mb-2 text-gray-700">Disk Head Movement:</p>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={data}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -545,13 +675,13 @@ const SCAN = () => {
                 </ResponsiveContainer>
               </div>
 
-              {/* Request sequence badges */}
+              {/* Request Sequence Badges */}
               <div className="bg-white p-4 rounded-lg border border-gray-300">
-                <p className="font-semibold mb-2">Service Sequence (SCAN order):</p>
+                <p className="font-semibold mb-3 text-gray-700">Service Sequence (SCAN order):</p>
                 <div className="flex gap-2 flex-wrap">
                   {sequence.map((pos, idx) => (
                     <span key={idx}
-                      className={`px-3 py-1 rounded-lg font-semibold ${
+                      className={`px-3 py-2 rounded-lg font-semibold text-sm ${
                         pos === 0 || pos === parseInt(diskSize)
                           ? "bg-yellow-100 text-yellow-700"
                           : "bg-indigo-100 text-indigo-700"
@@ -563,12 +693,12 @@ const SCAN = () => {
                 <p className="text-xs text-gray-400 mt-2">⚡ = disk boundary (reversal point)</p>
               </div>
 
-              {/* Seek bar */}
+              {/* Seek Bar */}
               <div className="bg-white p-4 rounded-lg border border-gray-300">
                 <SeekBar sequence={sequence} diskSize={parseInt(diskSize)} />
               </div>
 
-              {/* Step table */}
+              {/* Step Table */}
               <div className="bg-white p-4 rounded-lg border border-gray-300">
                 <StepTable sequence={sequence} />
               </div>

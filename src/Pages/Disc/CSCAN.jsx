@@ -596,7 +596,7 @@ const CSCAN = () => {
 
           <button
             onClick={simulateCSCAN}
-            className="mb-6 bg-green-500 text-white px-8 py-3 rounded-lg hover:bg-green-600 transition"
+              className="w-full bg-green-500 text-white px-8 py-3 rounded-lg hover:bg-green-600 font-bold text-lg transition mb-6"
           >
             Simulate
           </button>
