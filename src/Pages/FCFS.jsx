@@ -3,24 +3,28 @@ import React, { useState } from "react";
 // ── Example scenarios ──────────────────────────────────────────────────────
 const EXAMPLES = [
   {
-    title: "Example 1 — Three Processes Arriving in Order",
+    title: "Example 1 — Three Processes Arriving in Order (Basic Sequence)",
     processes: [
       { name: "Process A", arrival: 0, burst: 5 },
       { name: "Process B", arrival: 1, burst: 3 },
       { name: "Process C", arrival: 2, burst: 4 },
     ],
     explanation: [
-      "Process A arrives at time 0 and needs 5 time units of CPU.",
-      "Process B arrives at time 1 and needs 3 time units.",
-      "Process C arrives at time 2 and needs 4 time units.",
-      "Since A arrived first, it runs first from time 0 to 5.",
-      "B arrived second and waits. When A finishes at time 5, B starts and runs until time 8.",
-      "C waits for B to finish. At time 8, C starts and runs until time 12.",
-      "FCFS is simple: first process in line gets the CPU, no jumping ahead.",
+      "Process A arrives at time 0 with burst time 5.",
+      "Process B arrives at time 1 with burst time 3.",
+      "Process C arrives at time 2 with burst time 4.",
+      "Since A arrived first, CPU starts running A immediately at time 0.",
+      "A runs for 5 time units: 0 → 5. When A finishes at time 5, CPU is free.",
+      "B is waiting (arrived at 1, so waited from time 1 to 5 = 4 time units wait).",
+      "B starts at time 5 and runs for 3 time units: 5 → 8.",
+      "C waited from time 2 to 8 = 6 time units wait.",
+      "C starts at time 8 and runs for 4 time units: 8 → 12.",
+      "Metrics: A (wait=0, turnaround=5), B (wait=4, turnaround=7), C (wait=6, turnaround=10).",
+      "Average wait time = (0+4+6)/3 = 3.33. Average turnaround = (5+7+10)/3 = 7.33.",
     ],
   },
   {
-    title: "Example 2 — All Processes Arrive at the Same Time",
+    title: "Example 2 — All Processes Arrive at the Same Time (No Waiting Between)",
     processes: [
       { name: "P1", arrival: 0, burst: 8 },
       { name: "P2", arrival: 0, burst: 4 },
@@ -28,31 +32,84 @@ const EXAMPLES = [
     ],
     explanation: [
       "All three processes arrive at time 0 (same moment).",
-      "P1 is listed first, so it goes into the queue first.",
-      "P1 runs from time 0 to 8 (8 time units).",
-      "P2 waits while P1 runs. When P1 finishes at time 8, P2 starts.",
-      "P2 runs from time 8 to 12 (4 time units).",
-      "P3 waits the longest. At time 12, P3 finally gets the CPU.",
-      "P3 runs from time 12 to 14 (2 time units).",
-      "Notice: the order matters! If P2 arrived first, it would run first.",
+      "They join the queue in the order: P1, P2, P3.",
+      "P1 runs first from time 0 to 8 (8 time units).",
+      "P2 waits the entire time P1 runs. At time 8, P2 starts.",
+      "P2 runs from time 8 to 12 (4 time units). P2 waited for 8 time units!",
+      "P3 waited from time 0 to 12. At time 12, P3 starts.",
+      "P3 runs from time 12 to 14 (2 time units). P3 waited for 12 time units!",
+      "This shows the CONVOY EFFECT: short processes wait behind long ones.",
+      "Metrics: P1 (wait=0, turnaround=8), P2 (wait=8, turnaround=12), P3 (wait=12, turnaround=14).",
+      "Average wait = (0+8+12)/3 = 6.67. Average turnaround = (8+12+14)/3 = 11.33.",
+      "The convoy effect makes this scheduling very inefficient!",
     ],
   },
   {
-    title: "Example 3 — Processes With Gaps (Idle CPU)",
+    title: "Example 3 — Processes With Gaps (Idle CPU, Late Arrivals)",
     processes: [
       { name: "Process A", arrival: 0, burst: 3 },
       { name: "Process B", arrival: 8, burst: 2 },
       { name: "Process C", arrival: 10, burst: 5 },
     ],
     explanation: [
-      "Process A arrives at time 0 and runs from 0 to 3.",
-      "After A finishes at time 3, there are no more processes ready!",
-      "The CPU sits idle (waiting) from time 3 to 8.",
-      "At time 8, Process B finally arrives and immediately starts running.",
+      "Process A arrives at time 0 and immediately starts running.",
+      "A runs from time 0 to 3 (3 time units).",
+      "After A finishes at time 3, no more processes are ready!",
+      "Process B hasn't arrived yet (arrives at time 8).",
+      "CPU sits IDLE from time 3 to 8 (5 wasted time units).",
+      "At time 8, Process B finally arrives and immediately starts.",
       "B runs from time 8 to 10 (2 time units).",
-      "At time 10, Process C arrives and the queue is empty.",
-      "C starts immediately and runs from time 10 to 15 (5 time units).",
-      "Key point: If the next process hasn't arrived yet, the CPU stays idle.",
+      "At time 10, Process C arrives just as B finishes!",
+      "C starts immediately at time 10 and runs until time 15 (5 time units).",
+      "Metrics: A (wait=0, turnaround=3), B (wait=0, turnaround=2), C (wait=0, turnaround=5).",
+      "Average wait = 0. Average turnaround = 3.33.",
+      "No waiting between processes here, but CPU wasted 5 time units idle!",
+    ],
+  },
+  {
+    title: "Example 4 — Short Process After Long Process (Convoy Effect Demo)",
+    processes: [
+      { name: "Long Task", arrival: 0, burst: 10 },
+      { name: "Short Task 1", arrival: 1, burst: 1 },
+      { name: "Short Task 2", arrival: 2, burst: 1 },
+    ],
+    explanation: [
+      "Long Task arrives at time 0 with burst time 10.",
+      "Short Task 1 arrives at time 1 with burst time 1.",
+      "Short Task 2 arrives at time 2 with burst time 1.",
+      "Long Task starts immediately at time 0 and runs until time 10.",
+      "During this entire 10 time units, Short Task 1 waits (arrived at 1, waited 9 units!).",
+      "During this entire 10 time units, Short Task 2 waits (arrived at 2, waited 8 units!).",
+      "At time 10, Long Task finishes. Now Short Task 1 starts.",
+      "Short Task 1 runs from time 10 to 11 (1 time unit).",
+      "Short Task 2 starts at time 11 and runs until time 12 (1 time unit).",
+      "Metrics: Long (wait=0, turnaround=10), Short1 (wait=9, turnaround=10), Short2 (wait=8, turnaround=10).",
+      "Average wait = (0+9+8)/3 = 5.67.",
+      "Key lesson: FCFS causes long waits when a long process comes before short ones!",
+    ],
+  },
+  {
+    title: "Example 5 — Mixed Arrival Pattern (Complex Real-World Scenario)",
+    processes: [
+      { name: "Job A", arrival: 0, burst: 4 },
+      { name: "Job B", arrival: 2, burst: 6 },
+      { name: "Job C", arrival: 5, burst: 2 },
+      { name: "Job D", arrival: 7, burst: 3 },
+    ],
+    explanation: [
+      "Job A arrives at time 0 with burst 4. Starts immediately.",
+      "A runs from time 0 to 4.",
+      "Job B arrived at time 2, but A is still running. B waits (from 2 to 4 = 2 units).",
+      "At time 4, A finishes. B is next in queue and starts immediately.",
+      "Job C arrived at time 5. At time 5, B is still running (started at 4, burst 6, ends at 10).",
+      "C must wait from time 5 to time 10 (5 units wait).",
+      "Job D arrives at time 7. B is still running until time 10. D waits from 7 to 10 (3 units).",
+      "At time 10, B finishes. C is next in queue (arrived earlier than D).",
+      "C starts at time 10 and runs until time 12 (2 time units).",
+      "At time 12, D starts and runs until time 15 (3 time units).",
+      "Metrics: A (wait=0, turnaround=4), B (wait=2, turnaround=8), C (wait=5, turnaround=7), D (wait=3, turnaround=8).",
+      "Average wait = (0+2+5+3)/4 = 2.5. Average turnaround = (4+8+7+8)/4 = 6.75.",
+      "This real-world example shows how wait times accumulate with FCFS!",
     ],
   },
 ];
@@ -73,35 +130,14 @@ function Section({ title, children }) {
 function GanttChart({ timeline, maxTime }) {
   if (timeline.length === 0) return null;
 
-  const colors = {
-    Idle: "#d1d5db",
-    "Process A": "#4f46e5",
-    "Process B": "#06b6d4",
-    "Process C": "#10b981",
-    P1: "#4f46e5",
-    P2: "#06b6d4",
-    P3: "#10b981",
-    A: "#4f46e5",
-    B: "#06b6d4",
-    C: "#10b981",
-  };
-
   const colorMap = {};
+  const colors = ["#4f46e5", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+  let colorIndex = 0;
+
   timeline.forEach((slot) => {
-    if (!colorMap[slot.name]) {
-      const existingColors = Object.values(colorMap);
-      const availableColors = ["#4f46e5", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
-      let colorIndex = 0;
-      for (let color of availableColors) {
-        if (!existingColors.includes(color)) {
-          colorMap[slot.name] = color;
-          break;
-        }
-        colorIndex++;
-      }
-      if (!colorMap[slot.name]) {
-        colorMap[slot.name] = availableColors[existingColors.length % availableColors.length];
-      }
+    if (!colorMap[slot.name] && slot.name !== "Idle") {
+      colorMap[slot.name] = colors[colorIndex % colors.length];
+      colorIndex++;
     }
   });
 
@@ -120,7 +156,7 @@ function GanttChart({ timeline, maxTime }) {
                 width: `${slot.duration * 35}px`,
                 minWidth: `${slot.duration * 35}px`,
                 height: "60px",
-                backgroundColor: colorMap[slot.name] || "#d1d5db",
+                backgroundColor: slot.name === "Idle" ? "#d1d5db" : colorMap[slot.name] || "#d1d5db",
               }}
               title={`${slot.name}: ${slot.duration} units`}
             >
@@ -188,17 +224,15 @@ function GanttChart({ timeline, maxTime }) {
 
       {/* Legend */}
       <div className="flex flex-wrap gap-3 text-sm">
-        {Object.entries(colorMap)
-          .filter(([name]) => name !== "Idle")
-          .map(([name, color]) => (
-            <div key={name} className="flex items-center gap-2">
-              <div
-                className="w-4 h-4 rounded"
-                style={{ backgroundColor: color }}
-              ></div>
-              <span className="text-gray-700">{name}</span>
-            </div>
-          ))}
+        {Object.entries(colorMap).map(([name, color]) => (
+          <div key={name} className="flex items-center gap-2">
+            <div
+              className="w-4 h-4 rounded"
+              style={{ backgroundColor: color }}
+            ></div>
+            <span className="text-gray-700">{name}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -388,7 +422,7 @@ const FCFS = () => {
   // ── Simulate FCFS ──────────────────────────────────────────────────────
   const simulateFCFS = () => {
     // Validation
-    if (processes.some((p) => !p.name || !p.burst || !p.arrival)) {
+    if (processes.some((p) => !p.name || !p.burst || p.arrival === "")) {
       setError("Please fill all fields for each process.");
       setTimeline([]);
       return;
@@ -436,14 +470,6 @@ const FCFS = () => {
     setTimeline(tempTimeline);
   };
 
-  // ── Load example ───────────────────────────────────────────────────────
-  const loadExample = (exampleIndex) => {
-    const ex = EXAMPLES[exampleIndex];
-    setProcesses(JSON.parse(JSON.stringify(ex.processes)));
-    setTimeline([]);
-    setError("");
-  };
-
   // ── Reset ──────────────────────────────────────────────────────────────
   const reset = () => {
     setProcesses([{ name: "", burst: "", arrival: "" }]);
@@ -454,7 +480,7 @@ const FCFS = () => {
   const tabs = [
     { key: "theory", label: "📖 Theory" },
     { key: "examples", label: "🔍 Examples" },
-    { key: "practice", label: "🧪 Practice" },
+    { key: "practice", label: "✏️ Practice" },
   ];
 
   return (
@@ -573,6 +599,30 @@ const FCFS = () => {
             </ol>
           </Section>
 
+          <Section title="The Convoy Effect (Main Problem)">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+              <p className="text-gray-700 leading-relaxed mb-2">
+                <span className="font-bold text-red-700">The Convoy Effect</span> happens when a
+                long process arrives before short processes. The short processes get stuck waiting
+                behind the long one, like cars waiting behind a slow truck!
+              </p>
+              <p className="text-gray-700 text-sm">
+                Example: Long task (10 units) arrives at time 0. Short task (1 unit) arrives at
+                time 1. The short task waits 10 time units just to run for 1 unit!
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="font-bold text-red-700 mb-1">❌ With FCFS (Bad)</p>
+                <p className="text-gray-700">Long task first → Short tasks wait forever</p>
+              </div>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="font-bold text-green-700 mb-1">✅ With SJF (Better)</p>
+                <p className="text-gray-700">Short task first → Total wait time lower</p>
+              </div>
+            </div>
+          </Section>
+
           <Section title="Advantages of FCFS">
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <ul className="text-sm text-gray-700 space-y-2 list-disc list-inside">
@@ -679,9 +729,10 @@ const FCFS = () => {
           <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6 text-sm text-indigo-800">
             <p className="font-bold mb-1">💡 How to read these examples</p>
             <p>
-              Each example shows the processes, a step-by-step explanation, a Gantt chart (visual
-              timeline), and a table with metrics. The Gantt chart shows which process is running
-              at each moment. Pay attention to wait times and idle periods!
+              Each example shows the processes, a step-by-step explanation with detailed calculations,
+              a Gantt chart (visual timeline), and a table with metrics. Example 2 shows the convoy effect.
+              Example 3 shows CPU idle time. Example 4 demonstrates why short processes suffer. Example 5
+              shows a complex real-world scenario.
             </p>
           </div>
           {EXAMPLES.map((ex, i) => (
@@ -693,9 +744,9 @@ const FCFS = () => {
       {/* ══ PRACTICE ══ */}
       {activeTab === "practice" && (
         <>
-          <div className="w-full max-w-4xl bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6 text-sm text-indigo-800">
-            <p className="font-bold mb-1">🧪 Try it yourself</p>
-            <p>
+          <div className="w-full max-w-4xl bg-blue-50 border border-blue-300 rounded-xl p-4 mb-6">
+            <p className="text-blue-700 font-bold mb-1">✏️ Try it yourself</p>
+            <p className="text-blue-700">
               Enter your own processes with their arrival times and burst times. Then click
               Simulate to see the Gantt chart and metrics. Experiment to see how arrival times and
               burst times affect wait times!
@@ -775,7 +826,7 @@ const FCFS = () => {
               <div className="flex gap-3 flex-wrap">
                 <button
                   onClick={addProcess}
-                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 font-semibold text-sm transition"
+                  className="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 font-semibold text-sm transition"
                 >
                   + Add Process
                 </button>
@@ -791,7 +842,7 @@ const FCFS = () => {
             {/* Simulate button */}
             <button
               onClick={simulateFCFS}
-              className="w-full bg-green-500 text-white px-8 py-3 rounded-lg hover:bg-green-600 font-bold text-lg transition mb-6"
+              className="w-full bg-green-500 text-white px-8 py-4 rounded-lg hover:bg-green-600 font-bold text-lg transition mb-6"
             >
               Simulate
             </button>
