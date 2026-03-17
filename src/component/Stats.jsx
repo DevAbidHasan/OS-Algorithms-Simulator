@@ -52,7 +52,7 @@ const Stats = () => {
           />
           <StatPill value={3} suffix="" label="Categories" accent="#7c3aed" />
           <StatPill
-            value={75}
+            value={80}
             suffix="+"
             label="Worked Examples"
             accent="#059669"

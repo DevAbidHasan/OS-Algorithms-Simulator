@@ -14,49 +14,199 @@ import {
 // ── Example scenarios ──────────────────────────────────────────────────────
 const EXAMPLES = [
   {
-    title: "Example 1 — Basic Three-Task System",
+    title: "Example 1 — Basic Three-Task System (Fundamental EDF Concept)",
     tasks: [
       { name: "Task A", execution: 2, period: 4 },
       { name: "Task B", execution: 1, period: 6 },
       { name: "Task C", execution: 2, period: 12 },
     ],
     explanation: [
-      "Task A: C=2, T=4 → deadline at 4, 8, 12, ...",
-      "Task B: C=1, T=6 → deadline at 6, 12, ...",
-      "Task C: C=2, T=12 → deadline at 12, ...",
-      "EDF always picks the task with the earliest deadline among ready jobs.",
+      "Task A: C=2, T=4 → deadline at 4, 8, 12, 16, ...",
+      "Task B: C=1, T=6 → deadline at 6, 12, 18, ...",
+      "Task C: C=2, T=12 → deadline at 12, 24, ...",
+      "EDF ALWAYS picks the job with the earliest (smallest) absolute deadline.",
       "Hyperperiod = LCM(4, 6, 12) = 12 time units.",
-      "Schedule: At each time unit, execute the job with the earliest deadline.",
+      "Key difference from RMS: EDF looks at actual deadlines, not task periods.",
+      "At t=0: All released. Deadlines: A(4), B(6), C(12). Pick A (deadline 4).",
+      "At t=2: A done. B has deadline 6, C has deadline 12. Pick B (deadline 6).",
+      "At t=3: B done. C has deadline 12. Pick C.",
+      "At t=5: C finishes. A re-released (deadline 8), B re-released (deadline 12).",
+      "Schedule continues by always picking earliest deadline.",
+      "Key: EDF is OPTIMAL — if any schedule meets deadlines, EDF will too!",
     ],
   },
   {
-    title: "Example 2 — High-Frequency vs Low-Frequency",
+    title: "Example 2 — High-Frequency vs Low-Frequency (Deadline-Driven Priority)",
     tasks: [
       { name: "Fast", execution: 1, period: 2 },
       { name: "Slow", execution: 2, period: 5 },
     ],
     explanation: [
-      "Fast: C=1, T=2 → deadlines at 2, 4, 6, 8, 10, ...",
-      "Slow: C=2, T=5 → deadlines at 5, 10, ...",
-      "EDF prioritizes based on deadline urgency, not task frequency.",
-      "The fast task often gets scheduled first due to earlier deadlines.",
+      "Fast: C=1, T=2 → deadlines at 2, 4, 6, 8, 10, 12, ...",
+      "Slow: C=2, T=5 → deadlines at 5, 10, 15, ...",
+      "Unlike RMS which gives fixed priority to Fast (shorter period),",
+      "EDF dynamically chooses based on which job's deadline is sooner.",
       "Hyperperiod = LCM(2, 5) = 10 time units.",
-      "Notice how deadlines drive the scheduling, ensuring nothing misses its deadline.",
+      "Timeline:",
+      "  t=0: Both released. Deadlines: Fast(2), Slow(5). Pick Fast (deadline 2).",
+      "  t=1: Fast done. Slow deadline 5. Slow runs.",
+      "  t=2: Fast re-released (deadline 4). Slow still running (deadline 5).",
+      "  Since 4 < 5, EDF preempts Slow! Fast runs.",
+      "  t=3: Fast done. Slow resumes (deadline 5).",
+      "  t=4: Fast re-released (deadline 6). Slow still running (deadline 5).",
+      "  Since 5 < 6, Slow continues (it's more urgent).",
+      "  t=5: Slow finishes (met deadline at t=5 ✓). Fast runs.",
+      "  t=6: Fast finishes (met deadline at t=6 ✓). Both released.",
+      "Key: EDF automatically prioritizes whoever has sooner deadline, no fixed priority needed.",
     ],
   },
   {
-    title: "Example 3 — Competing Deadlines",
+    title: "Example 3 — Competing Deadlines (Tight Constraints)",
     tasks: [
       { name: "T1", execution: 2, period: 3 },
       { name: "T2", execution: 1, period: 4 },
     ],
     explanation: [
       "T1: C=2, T=3 → tight deadline every 3 units",
-      "T2: C=1, T=4 → less frequent, more relaxed",
-      "At time 0: T1 (deadline 3) and T2 (deadline 4) both released.",
-      "EDF picks T1 since 3 < 4. T1 executes at times 0 and 1.",
-      "At time 3: T1 re-released (new deadline 6), T2 still executing.",
+      "T2: C=1, T=4 → less tight, every 4 units",
       "Hyperperiod = LCM(3, 4) = 12 time units.",
+      "Timeline:",
+      "  t=0: Both released. Deadlines: T1(3), T2(4). Pick T1 (deadline 3 < 4).",
+      "  t=1: T1 still running. T1(1 remaining), T2(deadline 4). Pick T1.",
+      "  t=2: T1 finishes. T2 deadline 4. T2 runs.",
+      "  t=3: T1 re-released (deadline 6). T2 still has deadline 4.",
+      "  Since 4 < 6, T2 continues.",
+      "  t=4: T2 finishes (met deadline ✓). T1 deadline 6, now T2 re-released (deadline 8).",
+      "  Since 6 < 8, T1 runs.",
+      "  t=5: T1 finishes (met deadline ✓). T2 deadline 8. T2 runs.",
+      "  t=6: T1 re-released (deadline 9). T2 still deadline 8.",
+      "  Since 8 < 9, T2 continues.",
+      "  t=7: T2 finishes (met deadline ✓). T1 deadline 9. T1 runs.",
+      "  t=8: T1 finishes (met deadline ✓). Both released.",
+      "  t=9: T2 re-released. T1 deadline 12. T2 deadline 12. Tie! Use order.",
+      "Key: EDF handles tight deadlines elegantly by always picking most urgent job.",
+    ],
+  },
+  {
+    title: "Example 4 — EDF Optimality (Meets All Deadlines)",
+    tasks: [
+      { name: "Critical", execution: 1, period: 2 },
+      { name: "Normal", execution: 2, period: 5 },
+    ],
+    explanation: [
+      "Critical: C=1, T=2 → deadlines at 2, 4, 6, 8, 10, ...",
+      "Normal: C=2, T=5 → deadlines at 5, 10, ...",
+      "Utilization: U = 1/2 + 2/5 = 0.5 + 0.4 = 0.9 = 90%",
+      "Hyperperiod = LCM(2, 5) = 10 time units.",
+      "This task set is feasible (90% ≤ 100%). EDF will schedule it optimally.",
+      "Timeline:",
+      "  t=0: Both released. Deadlines: Critical(2), Normal(5). Pick Critical.",
+      "  t=1: Critical done. Normal deadline 5. Normal runs.",
+      "  t=2: Critical re-released (deadline 4). Normal deadline 5.",
+      "  4 < 5, so preempt Normal. Critical runs.",
+      "  t=3: Critical done. Normal deadline 5 (1 unit left). Normal runs.",
+      "  t=4: Critical re-released (deadline 6). Normal deadline 5.",
+      "  5 < 6, so Normal continues (must meet deadline at t=5).",
+      "  t=5: Normal finishes (deadline met ✓). Critical deadline 6. Critical runs.",
+      "  t=6: Critical finishes (deadline met ✓). Both re-released.",
+      "  t=7: Critical (deadline 8). Normal (deadline 10). Pick Critical.",
+      "  t=8: Critical done (deadline met ✓). Normal runs.",
+      "  t=9: Normal still running (1 unit left).",
+      "  t=10: Normal finishes (deadline met ✓).",
+      "ALL DEADLINES MET! EDF successfully scheduled a 90% utilization system.",
+      "Key: EDF is OPTIMAL. If any algorithm can meet deadlines, EDF will.",
+    ],
+  },
+  {
+    title: "Example 5 — EDF Under Stress (High Utilization, Just Feasible)",
+    tasks: [
+      { name: "Task1", execution: 2, period: 3 },
+      { name: "Task2", execution: 2, period: 4 },
+    ],
+    explanation: [
+      "Task1: C=2, T=3 → deadlines at 3, 6, 9, 12, ...",
+      "Task2: C=2, T=4 → deadlines at 4, 8, 12, ...",
+      "Utilization: U = 2/3 + 2/4 = 0.667 + 0.5 = 1.167 = 116.7%",
+      "Since 116.7% > 100%, this system is INFEASIBLE!",
+      "No scheduler (RMS, EDF, or any other) can meet all deadlines.",
+      "Hyperperiod = LCM(3, 4) = 12 time units.",
+      "Timeline (shows failure):",
+      "  t=0: Both released. Deadlines: Task1(3), Task2(4). Pick Task1.",
+      "  t=1: Task1 still running. Both same. Pick Task1.",
+      "  t=2: Task1 finishes. Task2 deadline 4. Task2 runs.",
+      "  t=3: Task1 re-released (deadline 6). Task2 deadline 4.",
+      "  4 < 6, so Task2 continues.",
+      "  t=4: Task2 finishes (deadline met ✓). Task1 deadline 6. Task1 runs.",
+      "  t=5: Task1 still running. Task1 deadline 6. Task1 runs.",
+      "  t=6: Task1 finishes (deadline met ✓). Both re-released.",
+      "  At t=6: Task1 deadline 9, Task2 deadline 8. Pick Task2.",
+      "  t=7: Task2 still running.",
+      "  t=8: Task2 finishes (deadline met ✓). Task1 deadline 9.",
+      "  t=9: Task1 still running.",
+      "  t=10: Task1 still running (1 unit left).",
+      "  t=11: Task1 finishes BUT deadline was 9! DEADLINE MISSED! ❌",
+      "  t=12: Both re-released.",
+      "Again at t=12, Task1 released but can't finish by t=15.",
+      "System CANNOT meet all deadlines despite EDF's optimality.",
+      "Key: Even EDF can't fix infeasible systems. Need more CPU capacity.",
+    ],
+  },
+  {
+    title: "Example 6 — Deadline Tie-Breaking (Same Deadline)",
+    tasks: [
+      { name: "Job1", execution: 1, period: 4 },
+      { name: "Job2", execution: 2, period: 4 },
+      { name: "Job3", execution: 1, period: 8 },
+    ],
+    explanation: [
+      "All Job1 and Job2 have same period (4), so same deadline every cycle.",
+      "Job1: C=1, T=4 → deadlines at 4, 8, 12, ...",
+      "Job2: C=2, T=4 → deadlines at 4, 8, 12, ...",
+      "Job3: C=1, T=8 → deadlines at 8, 16, ...",
+      "Hyperperiod = LCM(4, 4, 8) = 8 time units.",
+      "When Job1 and Job2 have same deadline, use tie-breaking: arbitrary or input order.",
+      "Timeline:",
+      "  t=0: All released. Deadlines: Job1(4), Job2(4), Job3(8).",
+      "  Job1 and Job2 tie at deadline 4. Break tie: pick Job1 (first).",
+      "  t=1: Job1 done. Job2(deadline 4), Job3(deadline 8). Pick Job2.",
+      "  t=2: Job2 still running (1 unit left).",
+      "  t=3: Job2 finishes (deadline met ✓). Job3 deadline 8. Job3 runs.",
+      "  t=4: Job1 re-released (deadline 8). Job3 deadline 8. Tie!",
+      "  By input order, pick Job1.",
+      "  t=5: Job1 done. Job3 deadline 8 (1 unit left). Job3 runs.",
+      "  t=6: Job3 finishes (deadline met ✓). Job2 re-released (deadline 8).",
+      "  t=7: Job2 still running (1 unit left).",
+      "  t=8: Job2 finishes (deadline met ✓). All re-released.",
+      "All deadlines met despite ties. Tie-breaking is straightforward.",
+      "Key: When deadlines tie, use consistent tie-breaker (input order, ID, etc.).",
+    ],
+  },
+  {
+    title: "Example 7 — Dynamic Arrival Pattern (EDF Adaptability)",
+    tasks: [
+      { name: "Reactive", execution: 1, period: 2 },
+      { name: "Batch", execution: 3, period: 6 },
+    ],
+    explanation: [
+      "Reactive: C=1, T=2 → frequent short jobs at deadlines 2, 4, 6, 8, 10, ...",
+      "Batch: C=3, T=6 → occasional long jobs at deadlines 6, 12, ...",
+      "Utilization: U = 1/2 + 3/6 = 0.5 + 0.5 = 1.0 = 100% (fully utilized)",
+      "Hyperperiod = LCM(2, 6) = 6 time units.",
+      "EDF dynamically adapts to the workload pattern.",
+      "Timeline:",
+      "  t=0: Both released. Deadlines: Reactive(2), Batch(6). Pick Reactive.",
+      "  t=1: Reactive done. Batch deadline 6. Batch runs.",
+      "  t=2: Reactive re-released (deadline 4). Batch deadline 6.",
+      "  4 < 6, so preempt Batch. Reactive runs.",
+      "  t=3: Reactive done. Batch deadline 6 (2 units left). Batch runs.",
+      "  t=4: Reactive re-released (deadline 6). Batch deadline 6. Tie!",
+      "  By input order, pick Reactive.",
+      "  t=5: Reactive done. Batch deadline 6 (1 unit left). Batch runs.",
+      "  t=6: Batch finishes (deadline met ✓). Reactive deadline 8.",
+      "  Both complete exactly at their deadlines.",
+      "ALL DEADLINES MET at exactly 100% CPU utilization!",
+      "This shows EDF's ability to pack the schedule tightly.",
+      "Key: EDF automatically adapts to deadline urgency. Highly responsive scheduling.",
     ],
   },
 ];
@@ -88,12 +238,6 @@ function TimelineVisualization({ schedule, hyperperiod }) {
     "#ec4899", // pink
   ];
 
-  const timelineData = schedule.map((task, idx) => ({
-    time: idx,
-    task: task === "-" ? null : task,
-    taskName: task,
-  }));
-
   return (
     <div className="mt-4 space-y-4">
       <p className="font-semibold text-gray-700">Task Execution Timeline:</p>
@@ -119,7 +263,7 @@ function TimelineVisualization({ schedule, hyperperiod }) {
           })}
         </div>
         <p className="text-xs text-gray-500 mt-2">
-          Each block represents one time unit. Colored blocks = task execution, Gray blocks = idle.
+          Each block = 1 time unit. Colored = task execution, Gray = idle.
         </p>
       </div>
 
@@ -163,7 +307,6 @@ function TimelineVisualization({ schedule, hyperperiod }) {
 function ScheduleTable({ schedule, tasks }) {
   if (schedule.length === 0) return null;
 
-  // Reconstruct job instances with deadlines
   const gcd = (x, y) => (!y ? x : gcd(y, x % y));
   const lcm = (a, b) => (a * b) / gcd(a, b);
 
@@ -176,7 +319,6 @@ function ScheduleTable({ schedule, tasks }) {
   const jobQueue = {};
 
   for (let time = 0; time < hyperperiod; time++) {
-    // Release new jobs
     tasks.forEach((task) => {
       if (time % task.period === 0) {
         const jobId = `${task.name}-${time}`;
@@ -189,7 +331,6 @@ function ScheduleTable({ schedule, tasks }) {
       }
     });
 
-    // Execute job with earliest deadline
     const readyJobs = Object.values(jobQueue).filter((j) => j.remaining > 0);
     if (readyJobs.length > 0) {
       readyJobs.sort((a, b) => a.deadline - b.deadline);
@@ -244,7 +385,6 @@ function ScheduleTable({ schedule, tasks }) {
 
 // ── Worked Example Block ──────────────────────────────────────────────────
 function WorkedExample({ ex }) {
-  // Calculate hyperperiod
   const gcd = (x, y) => (!y ? x : gcd(y, x % y));
   const lcm = (a, b) => (a * b) / gcd(a, b);
 
@@ -253,7 +393,6 @@ function WorkedExample({ ex }) {
     hyperperiod = lcm(hyperperiod, ex.tasks[i].period);
   }
 
-  // Generate schedule
   const schedule = [];
   const jobQueue = {};
 
@@ -282,6 +421,7 @@ function WorkedExample({ ex }) {
 
   const busySlots = schedule.filter((t) => t !== "-").length;
   const cpuUtil = ((busySlots / hyperperiod) * 100).toFixed(1);
+  const utilization = ex.tasks.reduce((sum, t) => sum + t.execution / t.period, 0);
 
   return (
     <div className="border border-gray-200 rounded-lg p-4 mb-4 bg-gray-50">
@@ -305,7 +445,7 @@ function WorkedExample({ ex }) {
       </ol>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-2 mb-4 text-sm">
+      <div className={`grid grid-cols-4 gap-2 mb-4 text-sm ${utilization > 1 ? "opacity-75" : ""}`}>
         <div className="bg-white border border-gray-200 rounded p-2 text-center">
           <p className="text-gray-600 text-xs">Hyperperiod</p>
           <p className="font-bold text-indigo-600">{hyperperiod}</p>
@@ -314,15 +454,22 @@ function WorkedExample({ ex }) {
           <p className="text-gray-600 text-xs">Busy Slots</p>
           <p className="font-bold text-indigo-600">{busySlots}</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded p-2 text-center">
+        <div className={`rounded p-2 text-center ${utilization > 1 ? "bg-red-50 border border-red-200" : "bg-white border border-gray-200"}`}>
           <p className="text-gray-600 text-xs">CPU Usage</p>
-          <p className="font-bold text-indigo-600">{cpuUtil}%</p>
+          <p className={`font-bold ${utilization > 1 ? "text-red-600" : "text-indigo-600"}`}>{cpuUtil}%</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded p-2 text-center">
-          <p className="text-gray-600 text-xs">Idle Slots</p>
-          <p className="font-bold text-indigo-600">{hyperperiod - busySlots}</p>
+        <div className={`rounded p-2 text-center ${utilization > 1 ? "bg-red-50 border border-red-200" : "bg-white border border-gray-200"}`}>
+          <p className="text-gray-600 text-xs">Utilization</p>
+          <p className={`font-bold ${utilization > 1 ? "text-red-600" : "text-indigo-600"}`}>{(utilization * 100).toFixed(1)}%</p>
         </div>
       </div>
+
+      {utilization > 1 && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-sm text-red-700">
+          <p className="font-bold">❌ System OVERLOADED or INFEASIBLE!</p>
+          <p>CPU usage exceeds 100%. Even EDF cannot meet all deadlines.</p>
+        </div>
+      )}
 
       {/* Timeline visualization */}
       <TimelineVisualization schedule={schedule} hyperperiod={hyperperiod} />
@@ -334,39 +481,33 @@ function WorkedExample({ ex }) {
 }
 
 // ── Main Component ────────────────────────────────────────────────────────
-const EarliestDeadline = () => {
+const EearliestDeadline = () => {
   const [tasks, setTasks] = useState([{ name: "", execution: "", period: "" }]);
   const [schedule, setSchedule] = useState([]);
   const [hyperperiod, setHyperperiod] = useState(0);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("theory");
 
-  // ── Utility functions ──────────────────────────────────────────────────
   const gcd = (x, y) => (!y ? x : gcd(y, x % y));
   const lcm = (a, b) => (a * b) / gcd(a, b);
 
-  // ── Add task ───────────────────────────────────────────────────────────
   const addTask = () => {
     setTasks([...tasks, { name: "", execution: "", period: "" }]);
   };
 
-  // ── Delete task ────────────────────────────────────────────────────────
   const deleteTask = (index) => {
     if (tasks.length > 1) {
       setTasks(tasks.filter((_, i) => i !== index));
     }
   };
 
-  // ── Handle input changes ───────────────────────────────────────────────
   const handleChange = (index, field, value) => {
     const newTasks = [...tasks];
     newTasks[index][field] = value;
     setTasks(newTasks);
   };
 
-  // ── Simulate EDF scheduling ────────────────────────────────────────────
   const simulateEDF = () => {
-    // Validation
     if (tasks.some((t) => !t.name || !t.execution || !t.period)) {
       setError("Please fill all fields for each task.");
       setSchedule([]);
@@ -381,21 +522,18 @@ const EarliestDeadline = () => {
 
     setError("");
 
-    // Convert to numbers
     const taskData = tasks.map((t) => ({
       name: t.name,
       execution: parseInt(t.execution),
       period: parseInt(t.period),
     }));
 
-    // Validate
     if (taskData.some((t) => t.execution <= 0 || t.period <= 0)) {
       setError("Execution time and period must be positive integers.");
       setSchedule([]);
       return;
     }
 
-    // Calculate hyperperiod
     let hp = taskData[0].period;
     for (let i = 1; i < taskData.length; i++) {
       hp = lcm(hp, taskData[i].period);
@@ -407,12 +545,10 @@ const EarliestDeadline = () => {
       return;
     }
 
-    // Generate EDF schedule
     const sched = [];
     const jobQueue = {};
 
     for (let time = 0; time < hp; time++) {
-      // Release new job instances
       taskData.forEach((task) => {
         if (time % task.period === 0) {
           const jobId = `${task.name}-${time}`;
@@ -424,7 +560,6 @@ const EarliestDeadline = () => {
         }
       });
 
-      // Pick job with earliest deadline
       const readyJobs = Object.values(jobQueue).filter((j) => j.remaining > 0);
       if (readyJobs.length > 0) {
         readyJobs.sort((a, b) => a.deadline - b.deadline);
@@ -440,15 +575,6 @@ const EarliestDeadline = () => {
     setSchedule(sched);
   };
 
-  // ── Load example ───────────────────────────────────────────────────────
-  const loadExample = (exampleIndex) => {
-    const ex = EXAMPLES[exampleIndex];
-    setTasks(JSON.parse(JSON.stringify(ex.tasks)));
-    setSchedule([]);
-    setError("");
-  };
-
-  // ── Reset ──────────────────────────────────────────────────────────────
   const reset = () => {
     setTasks([{ name: "", execution: "", period: "" }]);
     setSchedule([]);
@@ -466,16 +592,14 @@ const EarliestDeadline = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 p-6 md:p-12 flex flex-col items-center">
-      {/* Header */}
       <h1 className="text-3xl font-bold mb-2 text-indigo-700">
         Earliest Deadline First (EDF) Scheduler
       </h1>
       <p className="text-gray-500 mb-6 text-center max-w-xl text-sm">
         A dynamic, optimal scheduling algorithm that always executes the task with the nearest
-        deadline. Ideal for systems where deadline compliance is critical.
+        deadline. Ideal for systems where deadline compliance is critical and workload changes dynamically.
       </p>
 
-      {/* Tab bar */}
       <div className="flex gap-2 mb-6 bg-white border border-gray-300 rounded-lg p-1 w-full max-w-4xl">
         {tabs.map((t) => (
           <button
@@ -497,16 +621,15 @@ const EarliestDeadline = () => {
         <>
           <Section title="What is Earliest Deadline First (EDF)?">
             <p className="text-gray-700 leading-relaxed mb-3">
-              <span className="font-bold text-indigo-600">EDF (Earliest Deadline First)</span> is
-              a dynamic scheduling algorithm that always executes the ready job with the{" "}
-              <span className="font-semibold">earliest absolute deadline</span>. Unlike static
-              scheduling, EDF makes decisions <span className="font-semibold">at runtime</span>{" "}
-              based on current job deadlines.
+              <span className="font-bold text-indigo-600">EDF (Earliest Deadline First)</span> is a
+              <span className="font-semibold"> dynamic, optimal scheduling algorithm</span> that always executes
+              the ready job with the <span className="font-bold">earliest absolute deadline</span>. Unlike static
+              or priority-based scheduling, EDF makes decisions <span className="font-semibold">at runtime</span>.
             </p>
             <p className="text-gray-700 leading-relaxed">
-              EDF is <span className="font-bold">optimal</span> for preemptive scheduling: if any
-              schedule can meet all deadlines, EDF will. This makes it a cornerstone of real-time
-              systems.
+              EDF is <span className="font-bold">optimal for uniprocessor systems:</span> if any schedule can meet
+              all deadlines, EDF will. This makes it the gold standard for real-time systems where deadline
+              compliance is absolutely critical.
             </p>
           </Section>
 
@@ -527,13 +650,13 @@ const EarliestDeadline = () => {
               <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
                 <p className="font-bold text-indigo-700 mb-2">🎯 Absolute Deadline</p>
                 <p className="text-gray-700 text-sm">
-                  Release time + period. EDF picks the job with the earliest deadline.
+                  Release time + period. The actual deadline for this specific job instance.
                 </p>
               </div>
               <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
                 <p className="font-bold text-indigo-700 mb-2">⚡ Dynamic Scheduling</p>
                 <p className="text-gray-700 text-sm">
-                  Decisions made at runtime, adapting to job arrivals and deadlines.
+                  Decisions made at runtime, adapting to deadline urgency in real-time.
                 </p>
               </div>
             </div>
@@ -554,23 +677,23 @@ const EarliestDeadline = () => {
                 },
                 {
                   n: 3,
-                  t: "Sort jobs by absolute deadline (ascending).",
+                  t: "Calculate absolute deadline for each job.",
                   d: "Deadline = release time + period.",
                 },
                 {
                   n: 4,
+                  t: "Sort jobs by absolute deadline (ascending).",
+                  d: "The job with the smallest deadline is most urgent.",
+                },
+                {
+                  n: 5,
                   t: "Execute the job with the earliest deadline.",
                   d: "For one time unit, run that job and decrement its remaining execution.",
                 },
                 {
-                  n: 5,
-                  t: "Repeat for the entire hyperperiod.",
-                  d: "Continue until all jobs in the hyperperiod are scheduled.",
-                },
-                {
                   n: 6,
-                  t: "If no jobs are ready, the CPU is idle.",
-                  d: "Mark that time unit as idle (no execution).",
+                  t: "Repeat for the entire hyperperiod.",
+                  d: "Continue until all jobs are scheduled. If no jobs ready, CPU is idle.",
                 },
               ].map(({ n, t, d }) => (
                 <li key={n} className="flex gap-3 items-start">
@@ -586,98 +709,55 @@ const EarliestDeadline = () => {
             </ol>
           </Section>
 
-          <Section title="Key Formula">
-            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-center mb-4">
-              <p className="text-lg font-bold text-indigo-700">
-                Absolute Deadline(job) = Release Time + Period
-              </p>
-              <p className="text-sm text-gray-500 mt-1">
-                Always execute the job with the smallest absolute deadline value.
-              </p>
-            </div>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-              <p className="text-lg font-bold text-yellow-700">
-                EDF is Optimal for Uniprocessor Systems
-              </p>
-              <p className="text-sm text-gray-600 mt-1">
-                If any scheduling algorithm can meet all deadlines, EDF will too.
-              </p>
-            </div>
-          </Section>
-
-          <Section title="EDF vs Static Scheduling">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="font-bold text-blue-700 mb-3">📊 Static Scheduling</p>
-                <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
-                  <li>Schedule computed offline before runtime</li>
-                  <li>Zero runtime overhead</li>
-                  <li>Less flexible, hard to add tasks</li>
-                  <li>Hyperperiod must be computed</li>
-                </ul>
+          <Section title="Key Formulas & Optimality">
+            <div className="space-y-3">
+              <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-center">
+                <p className="text-lg font-bold text-indigo-700 mb-2">Absolute Deadline Formula</p>
+                <p className="text-sm text-gray-600">
+                  Deadline(job) = Release Time + Period
+                  <br />
+                  Always execute the job with the smallest absolute deadline value.
+                </p>
               </div>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="font-bold text-green-700 mb-3">⚡ EDF (Dynamic)</p>
-                <ul className="text-sm text-gray-700 space-y-1 list-disc list-inside">
-                  <li>Decisions made at runtime by scheduler</li>
-                  <li>Small runtime overhead per decision</li>
-                  <li>Highly flexible, easily adapts to new jobs</li>
-                  <li>Optimal: meets deadlines if any algorithm can</li>
-                </ul>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                <p className="text-lg font-bold text-yellow-700 mb-2">EDF is Optimal</p>
+                <p className="text-sm text-gray-600">
+                  For uniprocessor preemptive scheduling: If ANY algorithm can meet all deadlines,
+                  EDF will too. This is a proven mathematical property.
+                </p>
               </div>
             </div>
           </Section>
 
-          <Section title="Advantages & Disadvantages">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="font-bold text-green-700 mb-3">✅ Advantages</p>
-                <ul className="text-sm text-gray-700 space-y-2 list-disc list-inside">
-                  <li>Optimal for uniprocessor systems</li>
-                  <li>Flexible — tasks can be added dynamically</li>
-                  <li>High CPU utilization possible</li>
-                  <li>Adapts to varying job loads</li>
-                  <li>Guarantees deadline meeting if feasible</li>
-                </ul>
-              </div>
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <p className="font-bold text-red-700 mb-3">❌ Disadvantages</p>
-                <ul className="text-sm text-gray-700 space-y-2 list-disc list-inside">
-                  <li>Runtime overhead for scheduling decisions</li>
-                  <li>Requires knowing deadlines in advance</li>
-                  <li>Can preempt running tasks (if preemptive)</li>
-                  <li>Not optimal for multiprocessor systems</li>
-                  <li>Scheduling points add latency</li>
-                </ul>
-              </div>
-            </div>
-          </Section>
-
-          <Section title="When is EDF Used?">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-              {[
-                {
-                  icon: "📱",
-                  title: "Mobile & Consumer Devices",
-                  desc: "Android, iOS use variants of EDF for responsive UI scheduling.",
-                },
-                {
-                  icon: "🎮",
-                  title: "Real-time Multimedia",
-                  desc: "Audio/video playback, gaming, VR — deadline-driven performance.",
-                },
-                {
-                  icon: "🤖",
-                  title: "Robotics & Autonomous Systems",
-                  desc: "Sensor processing and control loops with time-critical deadlines.",
-                },
-              ].map(({ icon, title, desc }) => (
-                <div key={title} className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
-                  <div className="text-3xl mb-2">{icon}</div>
-                  <p className="font-bold text-gray-800 mb-1">{title}</p>
-                  <p className="text-gray-600">{desc}</p>
-                </div>
-              ))}
+          <Section title="EDF vs Other Scheduling Algorithms">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left border border-gray-300 rounded-lg overflow-hidden">
+                <thead className="bg-indigo-500 text-white">
+                  <tr>
+                    <th className="px-4 py-2">Algorithm</th>
+                    <th className="px-4 py-2">Decision Rule</th>
+                    <th className="px-4 py-2">Decision Time</th>
+                    <th className="px-4 py-2">Optimality</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[
+                    ["EDF", "Earliest deadline (dynamic)", "Runtime", "Optimal"],
+                    ["RMS", "Period-based priority (fixed)", "Offline", "Optimal for U ≤ 69%"],
+                    ["Static Scheduling", "Pre-computed offline", "Offline", "Optimal if feasible"],
+                    ["FCFS", "Arrival order", "Runtime", "Not optimal"],
+                  ].map(([alg, rule, time, optimal], i) => (
+                    <tr key={alg} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                      <td className={`px-4 py-2 font-semibold ${alg === "EDF" ? "text-indigo-600" : "text-gray-700"}`}>
+                        {alg}
+                      </td>
+                      <td className="px-4 py-2 text-gray-600">{rule}</td>
+                      <td className="px-4 py-2 text-gray-600">{time}</td>
+                      <td className="px-4 py-2 text-gray-600">{optimal}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </Section>
 
@@ -685,12 +765,13 @@ const EarliestDeadline = () => {
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-gray-700 space-y-2">
               {[
                 "✅ At each time unit, identify all released and unfinished jobs.",
-                "✅ Calculate absolute deadline for each job: release + period.",
-                "✅ Pick the job with the smallest absolute deadline.",
+                "✅ Calculate absolute deadline: release time + period.",
+                "✅ Pick the job with the SMALLEST absolute deadline.",
                 "✅ Execute that job for exactly 1 time unit.",
                 "✅ Decrement its remaining execution time.",
                 "✅ Repeat until all jobs in the hyperperiod are completed.",
-                "✅ If no jobs are ready, mark that time as idle.",
+                "✅ Handle deadline ties with consistent tie-breaker (e.g., input order).",
+                "✅ EDF is optimal: if feasible, EDF will meet all deadlines.",
               ].map((line, i) => (
                 <p key={i}>{line}</p>
               ))}
@@ -703,11 +784,15 @@ const EarliestDeadline = () => {
       {activeTab === "examples" && (
         <div className="w-full max-w-4xl">
           <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6 text-sm text-indigo-800">
-            <p className="font-bold mb-1">💡 How to read these examples</p>
+            <p className="font-bold mb-1">💡 7 Complete Examples (All Critical EDF Cases)</p>
+            <p className="mb-2">
+              <strong>Ex 1-3:</strong> Basic concept, frequency vs deadline, competing deadlines.
+            </p>
+            <p className="mb-2">
+              <strong>Ex 4-5:</strong> EDF optimality (meets all), system overload (failure).
+            </p>
             <p>
-              Each example shows the tasks, step-by-step explanation of EDF logic, task statistics,
-              an execution timeline visualization, and a detailed schedule table. Pay close attention
-              to how deadlines determine the scheduling order.
+              <strong>Ex 6-7:</strong> Tie-breaking strategy, dynamic workload adaptability.
             </p>
           </div>
           {EXAMPLES.map((ex, i) => (
@@ -722,18 +807,16 @@ const EarliestDeadline = () => {
           <div className="w-full max-w-4xl bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6 text-sm text-indigo-800">
             <p className="font-bold mb-1">🧪 Try it yourself</p>
             <p>
-              Enter your own tasks with execution times and periods. The simulator will generate
-              the EDF schedule by always selecting the job with the earliest deadline. Observe how
-              deadlines drive the scheduling order, not task frequency or arrival order.
+              Enter your own tasks with execution times and periods. The simulator will generate the EDF
+              schedule by always selecting the job with the earliest (smallest) deadline. Observe how EDF
+              dynamically adapts to deadline urgency.
             </p>
           </div>
 
-          {/* Input Form */}
           <div className="w-full max-w-4xl">
             <div className="bg-white rounded-lg border border-gray-300 p-6 mb-4">
               <h3 className="font-bold text-gray-800 mb-4">Define Your Tasks</h3>
 
-              {/* Task table */}
               <div className="overflow-x-auto mb-4">
                 <table className="w-full text-sm">
                   <thead className="border-b border-gray-300">
@@ -797,7 +880,6 @@ const EarliestDeadline = () => {
                 </table>
               </div>
 
-              {/* Action buttons */}
               <div className="flex gap-3 flex-wrap">
                 <button
                   onClick={addTask}
@@ -814,7 +896,6 @@ const EarliestDeadline = () => {
               </div>
             </div>
 
-            {/* Simulate button */}
             <button
               onClick={simulateEDF}
               className="w-full bg-green-500 text-white px-8 py-3 rounded-lg hover:bg-green-600 font-bold text-lg transition mb-6"
@@ -822,17 +903,14 @@ const EarliestDeadline = () => {
               Simulate
             </button>
 
-            {/* Error */}
             {error && (
               <p className="text-red-600 font-semibold mb-4 bg-red-50 border border-red-200 p-3 rounded">
                 {error}
               </p>
             )}
 
-            {/* Results */}
             {schedule.length > 0 && (
               <div className="space-y-4">
-                {/* Stats cards */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                   <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-center">
                     <p className="text-gray-600 text-sm">Hyperperiod</p>
@@ -854,12 +932,10 @@ const EarliestDeadline = () => {
                   </div>
                 </div>
 
-                {/* Timeline chart */}
                 <div className="bg-white p-4 rounded-lg border border-gray-300">
                   <TimelineVisualization schedule={schedule} hyperperiod={hyperperiod} />
                 </div>
 
-                {/* Schedule table */}
                 <div className="bg-white p-4 rounded-lg border border-gray-300">
                   <ScheduleTable schedule={schedule} tasks={tasks} />
                 </div>
@@ -872,4 +948,4 @@ const EarliestDeadline = () => {
   );
 };
 
-export default EarliestDeadline;
+export default EearliestDeadline;

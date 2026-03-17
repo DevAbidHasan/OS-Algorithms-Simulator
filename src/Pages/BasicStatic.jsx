@@ -14,7 +14,7 @@ import {
 // ── Example scenarios ──────────────────────────────────────────────────────
 const EXAMPLES = [
   {
-    title: "Example 1 — Simple Three-Task System",
+    title: "Example 1 — Simple Three-Task System (Basic Concept)",
     tasks: [
       { name: "Task A", execution: 2, period: 4 },
       { name: "Task B", execution: 1, period: 6 },
@@ -25,36 +25,151 @@ const EXAMPLES = [
       "Task B: Execution=1, Period=6 (runs at times 0, 6, 12, ...)",
       "Task C: Execution=2, Period=12 (runs at times 0, 12, ...)",
       "Hyperperiod = LCM(4, 6, 12) = 12 time units",
-      "Schedule repeats every 12 time units. Total execution slots: 2+1+2+1+2 = 8",
+      "Schedule repeats every 12 time units.",
+      "Within one hyperperiod: TaskA runs 3x (6 units), TaskB runs 2x (2 units), TaskC runs 1x (2 units) = 10 units total.",
+      "CPU usage: 10/12 = 83.3% (plenty of idle time for other tasks)",
+      "Key insight: All three tasks coexist and their instances are scheduled before runtime.",
     ],
   },
   {
-    title: "Example 2 — Real-Time Sampling System",
+    title: "Example 2 — Real-Time Sampling System (High vs Low Frequency)",
     tasks: [
       { name: "Sensor", execution: 1, period: 2 },
       { name: "Process", execution: 2, period: 4 },
       { name: "Log", execution: 1, period: 8 },
     ],
     explanation: [
-      "Sensor: Execution=1, Period=2 (high frequency, quick execution)",
-      "Process: Execution=2, Period=4 (medium frequency)",
-      "Log: Execution=1, Period=8 (low frequency, data logging)",
+      "Sensor: Execution=1, Period=2 (high frequency sampling, quick execution)",
+      "Process: Execution=2, Period=4 (medium frequency processing)",
+      "Log: Execution=1, Period=8 (low frequency data logging)",
       "Hyperperiod = LCM(2, 4, 8) = 8 time units",
-      "This simulates a sensor reading at 2-unit intervals with processing every 4 units.",
+      "Within hyperperiod H=8:",
+      "  Sensor: 8/2=4 instances × 1 unit = 4 units",
+      "  Process: 8/4=2 instances × 2 units = 4 units",
+      "  Log: 8/8=1 instance × 1 unit = 1 unit",
+      "Total: 4+4+1 = 9 units required but only 8 available!",
+      "CPU usage = 9/8 = 112.5% — SYSTEM IS INFEASIBLE!",
+      "Key insight: Not all task combinations are schedulable. Check feasibility first!",
     ],
   },
   {
-    title: "Example 3 — Mixed Periodicity",
+    title: "Example 3 — Mixed Periodicity (LCM Explosion Problem)",
     tasks: [
-      { name: "T1", execution: 3, period: 5 },
-      { name: "T2", execution: 2, period: 10 },
+      { name: "T1", execution: 2, period: 5 },
+      { name: "T2", execution: 1, period: 7 },
+      { name: "T3", execution: 1, period: 3 },
     ],
     explanation: [
-      "T1: Execution=3, Period=5 (heavy computation, frequent)",
-      "T2: Execution=2, Period=10 (lighter, less frequent)",
-      "Hyperperiod = LCM(5, 10) = 10 time units",
-      "CPU spends 50% time on T1 and 20% on T2 within the hyperperiod.",
-      "This example shows how tasks with different frequencies coexist.",
+      "T1: Execution=2, Period=5",
+      "T2: Execution=1, Period=7",
+      "T3: Execution=1, Period=3",
+      "Hyperperiod = LCM(5, 7, 3) = 105 time units (LARGE!)",
+      "This demonstrates the LCM explosion problem:",
+      "With just 3 tasks and small periods, hyperperiod grows to 105.",
+      "Imagine 10 tasks with prime periods — hyperperiod could be product of all primes!",
+      "Within hyperperiod H=105:",
+      "  T1: 105/5=21 instances × 2 units = 42 units",
+      "  T2: 105/7=15 instances × 1 unit = 15 units",
+      "  T3: 105/3=35 instances × 1 unit = 35 units",
+      "Total: 42+15+35 = 92 units. CPU usage = 92/105 = 87.6% (feasible)",
+      "Key insight: Static scheduling with many tasks suffers from hyperperiod explosion.",
+      "Storage grows fast. Schedule must be pre-computed and stored entirely.",
+      "Real systems avoid this by using harmonic periods (multiples of each other).",
+    ],
+  },
+  {
+    title: "Example 4 — Infeasible System (Cannot Schedule All Tasks)",
+    tasks: [
+      { name: "HighLoad", execution: 3, period: 4 },
+      { name: "MediumLoad", execution: 2, period: 4 },
+      { name: "LowLoad", execution: 2, period: 4 },
+    ],
+    explanation: [
+      "All tasks have SAME period = 4. But total execution: 3+2+2 = 7 per period!",
+      "Hyperperiod = LCM(4, 4, 4) = 4 time units",
+      "Each period has only 4 time units available.",
+      "Required per period: 3+2+2 = 7 units.",
+      "Available: 4 units.",
+      "Within H=4: HighLoad runs 1x (3 units), MediumLoad runs 1x (2 units), LowLoad runs 1x (2 units).",
+      "Total = 3+2+2 = 7 units but only 4 available!",
+      "CPU usage = 7/4 = 175% — IMPOSSIBLE!",
+      "Key insight: Infeasible systems CANNOT be statically scheduled.",
+      "Must reduce execution times, increase periods, or add more processors.",
+      "Feasibility checking is CRITICAL before attempting static scheduling.",
+    ],
+  },
+  {
+    title: "Example 5 — Nested Periods (Ideal for Static Scheduling)",
+    tasks: [
+      { name: "Fast", execution: 1, period: 2 },
+      { name: "Medium", execution: 1, period: 4 },
+      { name: "Slow", execution: 2, period: 8 },
+    ],
+    explanation: [
+      "Nested periods: 2, 4, 8 (each is power-of-2 multiple of previous)",
+      "This is IDEAL for static scheduling!",
+      "Hyperperiod = LCM(2, 4, 8) = 8 time units (manageable!)",
+      "Within H=8:",
+      "  Fast: 8/2=4 instances × 1 unit = 4 units",
+      "  Medium: 8/4=2 instances × 1 unit = 2 units",
+      "  Slow: 8/8=1 instance × 2 units = 2 units",
+      "Total: 4+2+2 = 8 units. CPU usage = 8/8 = 100% (PERFECTLY BALANCED!)",
+      "Task instances align nicely without gaps:",
+      "  t=0: Fast, Medium, Slow activate together",
+      "  t=2: Fast activates again",
+      "  t=4: Fast, Medium activate again",
+      "  t=6: Fast activates again",
+      "Schedule: Fast(1) Medium(1) Slow(2) Fast(1) Medium(1) Fast(1) Slow(?) Fast(1)",
+      "Wait, Slow needs 2 units. Scheduler fits them optimally.",
+      "Key insight: Harmonic/nested task sets are ideal for static scheduling.",
+      "Real systems deliberately use harmonic periods to keep hyperperiods small.",
+    ],
+  },
+  {
+    title: "Example 6 — Single Task (Baseline Case)",
+    tasks: [
+      { name: "OnlyTask", execution: 3, period: 6 },
+    ],
+    explanation: [
+      "Single task case: Simplest static scheduling scenario.",
+      "OnlyTask: Execution=3, Period=6",
+      "Hyperperiod = 6 time units (no LCM calculation needed)",
+      "Schedule is trivial: Run OnlyTask every 6 time units, taking 3 units each time.",
+      "Timeline:",
+      "  t=0→3: OnlyTask executes (first activation)",
+      "  t=3→6: Idle (CPU waiting for next period)",
+      "  t=6→9: OnlyTask executes (second activation)",
+      "  t=9→12: Idle",
+      "  ... repeats",
+      "Within H=6: 1 instance × 3 units = 3 units.",
+      "CPU usage = 3/6 = 50% (lots of idle time available)",
+      "Key insight: Single-task systems are trivial for static scheduling.",
+      "Static scheduling really shines with multiple interleaved periodic tasks.",
+    ],
+  },
+  {
+    title: "Example 7 — Critically Feasible System (CPU at 100% with Margin)",
+    tasks: [
+      { name: "Task1", execution: 3, period: 5 },
+      { name: "Task2", execution: 2, period: 5 },
+    ],
+    explanation: [
+      "Task1: Execution=3, Period=5",
+      "Task2: Execution=2, Period=5",
+      "Both have same period: 5",
+      "Hyperperiod = LCM(5, 5) = 5 time units",
+      "Within H=5:",
+      "  Task1: 5/5=1 instance × 3 units = 3 units",
+      "  Task2: 5/5=1 instance × 2 units = 2 units",
+      "Total: 3+2 = 5 units. CPU usage = 5/5 = 100% (FULL CAPACITY!)",
+      "Schedule is tight (no room for additional tasks or errors):",
+      "  Task1 executes 3 units (t=0→3)",
+      "  Task2 executes 2 units (t=3→5)",
+      "  Then repeat every 5 time units",
+      "At t=5: Both tasks activate again, same schedule repeats",
+      "Key insight: Critically feasible systems use 100% CPU.",
+      "Any delay or overhead causes deadline miss!",
+      "Real systems add some slack (typically keep CPU < 90%) for safety.",
     ],
   },
 ];
@@ -224,17 +339,19 @@ function WorkedExample({ ex }) {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-2 mb-4 text-sm">
-        <div className="bg-white border border-gray-200 rounded p-2">
-          <p className="text-gray-600">Hyperperiod</p>
-          <p className="font-bold text-indigo-600">{hyperperiod}</p>
+        <div className={`rounded p-3 text-center ${cpuUtil > 100 ? "bg-red-50 border border-red-200" : "bg-green-50 border border-green-200"}`}>
+          <p className={cpuUtil > 100 ? "text-red-600" : "text-green-600"}>Hyperperiod</p>
+          <p className={`font-bold ${cpuUtil > 100 ? "text-red-600" : "text-green-600"}`}>{hyperperiod}</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded p-2">
+        <div className={`rounded p-3 text-center ${cpuUtil > 100 ? "bg-red-50 border border-red-200" : "bg-white border border-gray-200"}`}>
           <p className="text-gray-600">Total Slots</p>
-          <p className="font-bold text-indigo-600">{schedule.length}</p>
+          <p className={`font-bold ${cpuUtil > 100 ? "text-red-600" : "text-indigo-600"}`}>{schedule.length}</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded p-2">
+        <div className={`rounded p-3 text-center ${cpuUtil > 100 ? "bg-red-50 border border-red-200" : "bg-white border border-gray-200"}`}>
           <p className="text-gray-600">CPU Usage</p>
-          <p className="font-bold text-indigo-600">{cpuUtil}%</p>
+          <p className={`font-bold ${cpuUtil > 100 ? "text-red-600 font-bold" : "text-indigo-600"}`}>
+            {cpuUtil}% {cpuUtil > 100 && "❌ INFEASIBLE"}
+          </p>
         </div>
       </div>
 
@@ -344,14 +461,6 @@ const BasicStatic = () => {
     setSchedule(sched);
   };
 
-  // ── Load example ───────────────────────────────────────────────────────
-  const loadExample = (exampleIndex) => {
-    const ex = EXAMPLES[exampleIndex];
-    setTasks(JSON.parse(JSON.stringify(ex.tasks)));
-    setSchedule([]);
-    setError("");
-  };
-
   // ── Reset ──────────────────────────────────────────────────────────────
   const reset = () => {
     setTasks([{ name: "", execution: "", period: "" }]);
@@ -374,8 +483,8 @@ const BasicStatic = () => {
         Basic Static Scheduling Simulator
       </h1>
       <p className="text-gray-500 mb-6 text-center max-w-xl text-sm">
-        Learn periodic task scheduling for real-time systems. Understand how tasks are assigned
-        to processors before runtime, then practise with your own scenarios.
+        Learn offline periodic task scheduling for hard real-time systems. Understand hyperperiod,
+        feasibility, and how to generate static schedules before runtime.
       </p>
 
       {/* Tab bar */}
@@ -408,7 +517,7 @@ const BasicStatic = () => {
             <p className="text-gray-700 leading-relaxed">
               Unlike dynamic scheduling, there is no runtime overhead—the processor simply follows
               the pre-computed schedule. This makes it ideal for hard real-time systems where
-              predictability is critical.
+              predictability is critical (aerospace, medical, automotive).
             </p>
           </Section>
 
@@ -434,10 +543,9 @@ const BasicStatic = () => {
                 </p>
               </div>
               <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-                <p className="font-bold text-indigo-700 mb-2">🎯 Periodic Task</p>
+                <p className="font-bold text-indigo-700 mb-2">🎯 Feasibility</p>
                 <p className="text-gray-700 text-sm">
-                  A task that activates at regular intervals and must complete before its deadline
-                  (typically equal to its period).
+                  A task set is feasible if total CPU time needed ≤ available CPU time (≤100%).
                 </p>
               </div>
             </div>
@@ -449,7 +557,7 @@ const BasicStatic = () => {
                 {
                   n: 1,
                   t: "Identify all periodic tasks.",
-                  d: "Collect each task's name, execution time, and period.",
+                  d: "Collect each task's name, execution time (C), and period (T).",
                 },
                 {
                   n: 2,
@@ -458,18 +566,18 @@ const BasicStatic = () => {
                 },
                 {
                   n: 3,
-                  t: "Generate the offline schedule.",
-                  d: "For each time unit from 0 to H−1, schedule instances of tasks due at that time.",
+                  t: "Check feasibility.",
+                  d: "Sum of (execution / period) for all tasks must be ≤ 1.0 (100% CPU).",
                 },
                 {
                   n: 4,
-                  t: "Execute in order.",
-                  d: "The processor follows the pre-computed schedule cyclically.",
+                  t: "Generate the offline schedule.",
+                  d: "For each time unit from 0 to H−1, schedule task instances that are due.",
                 },
                 {
                   n: 5,
-                  t: "Verify feasibility.",
-                  d: "Check that CPU utilization ≤ 100% and all deadlines are met.",
+                  t: "Execute cyclically.",
+                  d: "The processor follows the pre-computed schedule, repeating every H time units.",
                 },
               ].map(({ n, t, d }) => (
                 <li key={n} className="flex gap-3 items-start">
@@ -483,6 +591,21 @@ const BasicStatic = () => {
                 </li>
               ))}
             </ol>
+          </Section>
+
+          <Section title="Feasibility Analysis">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <p className="font-bold text-blue-700 mb-2">📐 Feasibility Condition</p>
+              <p className="text-gray-700 text-sm mb-2">
+                For a task set to be schedulable, the utilization must not exceed 100%:
+              </p>
+              <p className="font-mono text-center bg-white p-3 rounded border border-blue-300 text-sm">
+                U = Σ(C<sub>i</sub> / T<sub>i</sub>) ≤ 1.0
+              </p>
+              <p className="text-gray-700 text-sm mt-2">
+                If U &gt; 1.0, the system is <span className="font-bold">infeasible</span> — cannot schedule all tasks!
+              </p>
+            </div>
           </Section>
 
           <Section title="Advantages & Disadvantages">
@@ -501,7 +624,7 @@ const BasicStatic = () => {
                 <p className="font-bold text-red-700 mb-3">❌ Disadvantages</p>
                 <ul className="text-sm text-gray-700 space-y-2 list-disc list-inside">
                   <li>Inflexible — schedule is fixed, hard to add new tasks</li>
-                  <li>Hyperperiod can grow very large (LCM explosion)</li>
+                  <li>Hyperperiod can explode (LCM of many primes is product)</li>
                   <li>Wastes memory storing large schedules</li>
                   <li>Not suitable for systems with dynamic workloads</li>
                   <li>Poor scalability to many tasks</li>
@@ -538,73 +661,15 @@ const BasicStatic = () => {
             </div>
           </Section>
 
-          <Section title="Comparison with Other Scheduling Algorithms">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left border border-gray-300 rounded-lg overflow-hidden">
-                <thead className="bg-indigo-500 text-white">
-                  <tr>
-                    <th className="px-4 py-2">Algorithm</th>
-                    <th className="px-4 py-2">Decision Time</th>
-                    <th className="px-4 py-2">Overhead</th>
-                    <th className="px-4 py-2">Flexibility</th>
-                    <th className="px-4 py-2">Best For</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    [
-                      "Static Scheduling",
-                      "Offline (before runtime)",
-                      "None",
-                      "Low",
-                      "Fixed, hard real-time systems",
-                    ],
-                    [
-                      "Rate Monotonic (RM)",
-                      "Online, at runtime",
-                      "Low",
-                      "Medium",
-                      "Systems with frequent task changes",
-                    ],
-                    [
-                      "Earliest Deadline First (EDF)",
-                      "Online, at runtime",
-                      "Medium",
-                      "High",
-                      "Dynamic, soft real-time systems",
-                    ],
-                    [
-                      "Round Robin (RR)",
-                      "Online, at runtime",
-                      "Medium",
-                      "High",
-                      "General-purpose, time-sharing OS",
-                    ],
-                  ].map(([alg, time, overhead, flex, best], i) => (
-                    <tr key={alg} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                      <td className={`px-4 py-2 font-semibold ${alg === "Static Scheduling" ? "text-indigo-600" : "text-gray-700"}`}>
-                        {alg}
-                      </td>
-                      <td className="px-4 py-2 text-gray-600">{time}</td>
-                      <td className="px-4 py-2 text-gray-600">{overhead}</td>
-                      <td className="px-4 py-2 text-gray-600">{flex}</td>
-                      <td className="px-4 py-2 text-gray-600">{best}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Section>
-
           <Section title="Quick Verification Checklist">
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-gray-700 space-y-2">
               {[
                 "✅ All task names are unique and non-empty.",
                 "✅ All execution times and periods are positive integers.",
                 "✅ The hyperperiod is calculated correctly as LCM of all periods.",
+                "✅ Feasibility check: total utilization ≤ 100%.",
                 "✅ At each time unit, only tasks due at that time are scheduled.",
-                "✅ Total scheduled execution ≤ hyperperiod (CPU utilization ≤ 100%).",
-                "✅ Every instance of every task appears exactly once in the schedule.",
+                "✅ Every instance of every task appears exactly once in schedule.",
               ].map((line, i) => (
                 <p key={i}>{line}</p>
               ))}
@@ -617,12 +682,12 @@ const BasicStatic = () => {
       {activeTab === "examples" && (
         <div className="w-full max-w-4xl">
           <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6 text-sm text-indigo-800">
-            <p className="font-bold mb-1">💡 How to read these examples</p>
+            <p className="font-bold mb-1">💡 7 Complete Examples (All Critical Cases)</p>
+            <p className="mb-2">
+              <strong>Ex 1-4:</strong> Basic, infeasible systems, LCM explosion, CPU overload.
+            </p>
             <p>
-              Each example shows the tasks (with execution time and period), a step-by-step
-              breakdown of the scheduling logic, task statistics, a bar chart of execution over
-              time, and a detailed schedule table. Study these carefully before trying the
-              simulator.
+              <strong>Ex 5-7:</strong> Nested periods (ideal), single task, critically feasible systems (100% CPU).
             </p>
           </div>
           {EXAMPLES.map((ex, i) => (
@@ -637,9 +702,8 @@ const BasicStatic = () => {
           <div className="w-full max-w-4xl bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6 text-sm text-indigo-800">
             <p className="font-bold mb-1">🧪 Try it yourself</p>
             <p>
-              Enter your own tasks with their execution times and periods, then click Simulate to
-              see the static schedule generated. View the hyperperiod, CPU utilization, execution
-              chart, and detailed step-by-step breakdown.
+              Enter your own tasks with execution times and periods. The simulator calculates hyperperiod,
+              checks feasibility (CPU usage %), and generates the complete static schedule.
             </p>
           </div>
 
@@ -757,9 +821,11 @@ const BasicStatic = () => {
                     <p className="text-gray-600 text-sm">Total Slots</p>
                     <p className="text-2xl font-bold text-indigo-600">{schedule.length}</p>
                   </div>
-                  <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-center">
+                  <div className={`rounded-lg p-3 text-center ${cpuUtil > 100 ? "bg-red-50 border border-red-200" : "bg-indigo-50 border border-indigo-200"}`}>
                     <p className="text-gray-600 text-sm">CPU Usage</p>
-                    <p className="text-2xl font-bold text-indigo-600">{cpuUtil}%</p>
+                    <p className={`text-2xl font-bold ${cpuUtil > 100 ? "text-red-600" : "text-indigo-600"}`}>
+                      {cpuUtil}%
+                    </p>
                   </div>
                   <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-center">
                     <p className="text-gray-600 text-sm">Tasks</p>
@@ -768,6 +834,16 @@ const BasicStatic = () => {
                     </p>
                   </div>
                 </div>
+
+                {cpuUtil > 100 && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p className="text-red-700 font-bold">❌ System is INFEASIBLE!</p>
+                    <p className="text-red-600 text-sm mt-1">
+                      CPU usage exceeds 100%. Not enough processor capacity to schedule all tasks.
+                      Reduce execution times, increase periods, or add processors.
+                    </p>
+                  </div>
+                )}
 
                 {/* Timeline chart */}
                 <div className="bg-white p-4 rounded-lg border border-gray-300">

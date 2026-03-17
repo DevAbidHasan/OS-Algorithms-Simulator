@@ -14,51 +14,191 @@ import {
 // ── Example scenarios ──────────────────────────────────────────────────────
 const EXAMPLES = [
   {
-    title: "Example 1 — Simple Three-Task System",
+    title: "Example 1 — Simple Three-Task System (Basic RMS Concept)",
     tasks: [
       { name: "Task A", execution: 2, period: 4 },
       { name: "Task B", execution: 1, period: 6 },
       { name: "Task C", execution: 2, period: 12 },
     ],
     explanation: [
-      "Task A: C=2, T=4 → Priority 1 (shortest period, highest priority)",
-      "Task B: C=1, T=6 → Priority 2",
-      "Task C: C=2, T=12 → Priority 3 (longest period, lowest priority)",
-      "RMS assigns priority inversely to period: shorter period = higher priority.",
+      "Priority assignment by RMS rule (Period-based):",
+      "  Task A: T=4 → P1 (shortest period, highest priority)",
+      "  Task B: T=6 → P2 (medium period)",
+      "  Task C: T=12 → P3 (longest period, lowest priority)",
+      "RMS principle: shorter period = more frequent = higher priority.",
+      "Utilization: U = 2/4 + 1/6 + 2/12 = 0.5 + 0.167 + 0.167 = 83.3%",
+      "RMS bound for n=3: 3(2^(1/3) - 1) ≈ 77.9%",
+      "Since 83.3% > 77.9%, RMS bound is VIOLATED, but system might still be feasible.",
       "Hyperperiod = LCM(4, 6, 12) = 12 time units.",
-      "At each time, the highest priority ready task executes (preemptive).",
+      "Key: Task A's high frequency ensures it doesn't wait for C.",
     ],
   },
   {
-    title: "Example 2 — High-Frequency vs Low-Frequency Tasks",
+    title: "Example 2 — High-Frequency vs Low-Frequency Tasks (Sensor/Actuator)",
     tasks: [
       { name: "Sensor", execution: 1, period: 2 },
       { name: "Process", execution: 2, period: 4 },
       { name: "Log", execution: 1, period: 8 },
     ],
     explanation: [
-      "Sensor: C=1, T=2 → Priority 1 (highest, runs frequently)",
-      "Process: C=2, T=4 → Priority 2",
-      "Log: C=1, T=8 → Priority 3 (lowest, runs infrequently)",
-      "The high-frequency Sensor task gets priority over less frequent tasks.",
-      "Hyperperiod = LCM(2, 4, 8) = 8 time units.",
-      "This ensures critical, frequent tasks are never blocked by low-priority tasks.",
+      "Real-world scenario: Data acquisition system with mixed frequencies.",
+      "Priority assignment (by period, ascending order):",
+      "  Sensor: T=2 → P1 (high-frequency sampling, critical)",
+      "  Process: T=4 → P2 (medium-frequency processing)",
+      "  Log: T=8 → P3 (low-frequency logging, least critical)",
+      "Utilization: U = 1/2 + 2/4 + 1/8 = 0.5 + 0.5 + 0.125 = 112.5%",
+      "Since 112.5% > 100%, CPU is OVERLOADED. System is INFEASIBLE!",
+      "Not enough processor capacity to handle all tasks.",
+      "Hyperperiod = LCM(2, 4, 8) = 8 time units (but tasks won't all complete).",
+      "Key: High-frequency critical tasks protected by RMS priority, but system needs more CPU.",
     ],
   },
   {
-    title: "Example 3 — Preemption in Action",
+    title: "Example 3 — Preemption Demonstration (High Priority Interrupts Low)",
     tasks: [
       { name: "High", execution: 1, period: 2 },
       { name: "Low", execution: 3, period: 6 },
     ],
     explanation: [
-      "High: C=1, T=2 → Priority 1 (frequent, high-priority)",
-      "Low: C=3, T=6 → Priority 2 (infrequent, low-priority)",
-      "At time 0: Both released. High has higher priority, executes first.",
-      "At time 1: High completes. Low starts executing.",
-      "At time 2: High released again! Preempts Low (even mid-execution).",
-      "Low resumes after High finishes. Preemption ensures deadline safety.",
+      "Demonstrates RMS preemption: how high-priority interrupts low-priority mid-execution.",
+      "Priority assignment:",
+      "  High: T=2 → P1 (runs every 2 units, high priority)",
+      "  Low: T=6 → P2 (runs every 6 units, low priority)",
+      "Utilization: U = 1/2 + 3/6 = 0.5 + 0.5 = 100% (fully utilized)",
+      "RMS bound for n=2: 2(√2 - 1) ≈ 82.8%",
+      "Since 100% > 82.8%, bound violated, but check if actually feasible.",
+      "Timeline breakdown:",
+      "  t=0: Both released. High (P1) runs. 0→1.",
+      "  t=1: High finishes. Low (P2) starts. 1→2 (1 of 3 units).",
+      "  t=2: High released again! PREEMPTION occurs.",
+      "  Low is PAUSED. High runs. 2→3.",
+      "  t=3: High finishes. Low resumes. 3→5 (finishes remaining 2 units).",
+      "  t=4: High released again. But Low still running. Wait for High's turn.",
+      "  t=5: High released, waiting. Low finishes at t=5. High runs. 5→6.",
+      "  t=6: Both released. High runs. 6→7. Low released at t=6.",
+      "  t=7: High finishes. Low runs. 7→9 (2 units). Mid-execution at t=8.",
+      "  t=8: High released. PREEMPTS Low again. High runs. 8→9.",
+      "  t=9: High finishes. Low resumes/finishes. 9→10.",
       "Hyperperiod = LCM(2, 6) = 6 time units.",
+      "Preemption ensures High meets its 2-unit deadline despite Low's longer execution.",
+      "Key: RMS preemption guarantee ensures deadline safety.",
+    ],
+  },
+  {
+    title: "Example 4 — Optimal RMS Case (All Deadlines Guaranteed)",
+    tasks: [
+      { name: "T1", execution: 1, period: 3 },
+      { name: "T2", execution: 2, period: 6 },
+    ],
+    explanation: [
+      "Carefully designed task set that RMS handles optimally with guaranteed deadlines.",
+      "Priority assignment:",
+      "  T1: T=3 → P1 (short period, high priority)",
+      "  T2: T=6 → P2 (long period, low priority)",
+      "Utilization: U = 1/3 + 2/6 = 0.333 + 0.333 = 66.7%",
+      "RMS utilization bound for n=2: 2(√2 - 1) ≈ 82.8%",
+      "Since 66.7% < 82.8%, RMS GUARANTEES all deadlines are met!",
+      "This is a sufficient condition for deadline safety.",
+      "Hyperperiod = LCM(3, 6) = 6 time units.",
+      "Schedule:",
+      "  t=0: T1, T2 both released. T1 (P1) runs. 0→1.",
+      "  t=1: T1 finishes. T2 runs. 1→3 (2 units).",
+      "  t=2: (T2 still running, 1 unit left)",
+      "  t=3: T1 released again! PREEMPTS T2 (only 1 unit left).",
+      "  T1 runs. 3→4. T2 resumes. 4→5 (finishes remaining 1 unit).",
+      "  t=4: (T2 resuming from preemption at t=3)",
+      "  t=5: T2 finishes. Both tasks complete by deadlines.",
+      "  t=6: Period repeats.",
+      "All tasks complete by their deadlines (end of period = deadline).",
+      "Key: RMS utilization bound provides mathematical guarantee of feasibility.",
+    ],
+  },
+  {
+    title: "Example 5 — Multiple Periods Equal (Tie-Breaking Strategy)",
+    tasks: [
+      { name: "ProcessA", execution: 1, period: 4 },
+      { name: "ProcessB", execution: 2, period: 4 },
+      { name: "ProcessC", execution: 1, period: 8 },
+    ],
+    explanation: [
+      "What happens when multiple tasks have the SAME period?",
+      "Priority assignment (by period, then by order):",
+      "  ProcessA: T=4 → P1 (shorter period, higher priority)",
+      "  ProcessB: T=4 → P1 (same period as A, tied)",
+      "  ProcessC: T=8 → P2 (longer period, lower priority)",
+      "When periods equal, use tie-breaking: alphabetical order or input order.",
+      "Utilization: U = 1/4 + 2/4 + 1/8 = 0.25 + 0.5 + 0.125 = 87.5%",
+      "RMS bound for n=3: 3(2^(1/3) - 1) ≈ 77.9%",
+      "Since 87.5% > 77.9%, bound violated, but feasibility unknown.",
+      "Hyperperiod = LCM(4, 4, 8) = 8 time units.",
+      "Timeline:",
+      "  t=0: All released. ProcessA (earliest P1) runs. 0→1.",
+      "  t=1: ProcessA finishes. ProcessB runs. 1→3 (2 units).",
+      "  t=2: (ProcessB still running, 1 unit left)",
+      "  t=3: ProcessB finishes. ProcessC runs. 3→4.",
+      "  t=4: ProcessA, ProcessB released again. ProcessA runs (tie-break). 4→5.",
+      "  t=5: ProcessA finishes. ProcessB runs. 5→7 (2 units).",
+      "  t=6: (ProcessB still running, 1 unit left)",
+      "  t=7: ProcessB finishes. ProcessC already released at t=4, waiting.",
+      "  ProcessC continues. 7→8.",
+      "  t=8: End of hyperperiod.",
+      "Key: Tie-breaking strategy is crucial when periods are equal.",
+    ],
+  },
+  {
+    title: "Example 6 — RMS Bound Violated But Still Feasible",
+    tasks: [
+      { name: "Heavy", execution: 2, period: 3 },
+      { name: "Light", execution: 1, period: 3 },
+    ],
+    explanation: [
+      "Case where RMS utilization bound is VIOLATED, but system still works.",
+      "Priority assignment (both same period, so tie-break):",
+      "  Heavy: T=3 → P1 (first in order)",
+      "  Light: T=3 → P1 (second, same period as Heavy)",
+      "Utilization: U = 2/3 + 1/3 = 3/3 = 100% (FULL CPU!)",
+      "RMS bound for n=2: 2(√2 - 1) ≈ 82.8%",
+      "Since 100% > 82.8%, RMS bound is VIOLATED.",
+      "BUT: The system might still be feasible (bound is sufficient, not necessary).",
+      "Hyperperiod = LCM(3, 3) = 3 time units.",
+      "Schedule:",
+      "  t=0: Both released. Heavy (P1, 2 units) runs. 0→2.",
+      "  t=1: (Heavy still running, 1 unit left)",
+      "  t=2: Heavy finishes. Light runs. 2→3 (1 unit).",
+      "  t=3: Both complete by deadline (period = 3).",
+      "  Both released again at t=3. Cycle repeats.",
+      "All tasks complete within their 3-unit deadlines. System IS feasible!",
+      "Key: RMS utilization bound is SUFFICIENT (guaranteed) but not NECESSARY.",
+      "Below bound = definitely feasible. Above bound = must check actual schedule.",
+    ],
+  },
+  {
+    title: "Example 7 — RMS Failure Case (Misses Deadline)",
+    tasks: [
+      { name: "Task1", execution: 2, period: 2 },
+      { name: "Task2", execution: 2, period: 3 },
+    ],
+    explanation: [
+      "Case where RMS FAILS to meet deadlines despite being 'optimal'.",
+      "Priority assignment:",
+      "  Task1: T=2 → P1 (short period, high priority)",
+      "  Task2: T=3 → P2 (long period, low priority)",
+      "Utilization: U = 2/2 + 2/3 = 1.0 + 0.667 = 166.7%",
+      "Since 166.7% > 100%, CPU is OVERLOADED. System INFEASIBLE.",
+      "Not enough processor time to complete all tasks.",
+      "Hyperperiod = LCM(2, 3) = 6 time units.",
+      "Timeline (showing deadline misses):",
+      "  t=0: Both released. Task1 (P1) runs. 0→2 (finishes by deadline at t=2).",
+      "  t=2: Task1 released again (new period). Task2 (P2) waiting.",
+      "  Task1 has priority. Task1 runs. 2→4 (completes at t=4, before t=4 deadline).",
+      "  t=3: Task2 should have finished by now (deadline = period = 3)!",
+      "  At t=3, Task2 has not run at all. DEADLINE MISSED!",
+      "  t=4: Task1 finishes. Task2 finally runs. 4→6 (2 units).",
+      "  t=6: Task2 finishes, but deadline was at t=3. FAILURE!",
+      "Again at t=6, both released. Task1 runs. t=6→8, but cycle repeats.",
+      "System cannot handle the workload. Multiple deadline misses.",
+      "Key: When U > 100%, system is mathematically infeasible.",
+      "RMS cannot save an infeasible system. Need more CPU or reduce work.",
     ],
   },
 ];
@@ -159,7 +299,6 @@ function TimelineVisualization({ schedule, hyperperiod }) {
 function ScheduleTable({ schedule, tasks }) {
   if (schedule.length === 0) return null;
 
-  // Reconstruct priority and remaining time info
   const sortedTasks = [...tasks].sort((a, b) => a.period - b.period);
   const gcd = (x, y) => (!y ? x : gcd(y, x % y));
   const lcm = (a, b) => (a * b) / gcd(a, b);
@@ -173,12 +312,10 @@ function ScheduleTable({ schedule, tasks }) {
   const remaining = sortedTasks.map((t) => 0);
 
   for (let time = 0; time < hyperperiod; time++) {
-    // Release tasks
     sortedTasks.forEach((t, idx) => {
       if (time % t.period === 0) remaining[idx] = t.execution;
     });
 
-    // Find highest priority ready task
     const readyTasks = remaining
       .map((rem, idx) => ({ rem, idx }))
       .filter((t) => t.rem > 0);
@@ -241,7 +378,6 @@ function ScheduleTable({ schedule, tasks }) {
 
 // ── Worked Example Block ──────────────────────────────────────────────────
 function WorkedExample({ ex }) {
-  // Calculate hyperperiod
   const gcd = (x, y) => (!y ? x : gcd(y, x % y));
   const lcm = (a, b) => (a * b) / gcd(a, b);
 
@@ -250,10 +386,8 @@ function WorkedExample({ ex }) {
     hyperperiod = lcm(hyperperiod, ex.tasks[i].period);
   }
 
-  // Sort by period (for priority assignment)
   const sortedTasks = [...ex.tasks].sort((a, b) => a.period - b.period);
 
-  // Generate schedule
   const schedule = [];
   const remaining = sortedTasks.map((t) => 0);
 
@@ -277,6 +411,7 @@ function WorkedExample({ ex }) {
 
   const busySlots = schedule.filter((t) => t !== "-").length;
   const cpuUtil = ((busySlots / hyperperiod) * 100).toFixed(1);
+  const utilization = sortedTasks.reduce((sum, t) => sum + t.execution / t.period, 0);
 
   return (
     <div className="border border-gray-200 rounded-lg p-4 mb-4 bg-gray-50">
@@ -300,7 +435,7 @@ function WorkedExample({ ex }) {
       </ol>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-2 mb-4 text-sm">
+      <div className={`grid grid-cols-4 gap-2 mb-4 text-sm ${utilization > 1 ? "opacity-75" : ""}`}>
         <div className="bg-white border border-gray-200 rounded p-2 text-center">
           <p className="text-gray-600 text-xs">Hyperperiod</p>
           <p className="font-bold text-indigo-600">{hyperperiod}</p>
@@ -309,15 +444,22 @@ function WorkedExample({ ex }) {
           <p className="text-gray-600 text-xs">Busy Slots</p>
           <p className="font-bold text-indigo-600">{busySlots}</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded p-2 text-center">
+        <div className={`rounded p-2 text-center ${utilization > 1 ? "bg-red-50 border border-red-200" : "bg-white border border-gray-200"}`}>
           <p className="text-gray-600 text-xs">CPU Usage</p>
-          <p className="font-bold text-indigo-600">{cpuUtil}%</p>
+          <p className={`font-bold ${utilization > 1 ? "text-red-600" : "text-indigo-600"}`}>{cpuUtil}%</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded p-2 text-center">
-          <p className="text-gray-600 text-xs">Idle Slots</p>
-          <p className="font-bold text-indigo-600">{hyperperiod - busySlots}</p>
+        <div className={`rounded p-2 text-center ${utilization > 1 ? "bg-red-50 border border-red-200" : "bg-white border border-gray-200"}`}>
+          <p className="text-gray-600 text-xs">Utilization</p>
+          <p className={`font-bold ${utilization > 1 ? "text-red-600" : "text-indigo-600"}`}>{(utilization * 100).toFixed(1)}%</p>
         </div>
       </div>
+
+      {utilization > 1 && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-sm text-red-700">
+          <p className="font-bold">❌ System OVERLOADED or INFEASIBLE!</p>
+          <p>CPU usage exceeds 100%. Not all tasks can complete in time.</p>
+        </div>
+      )}
 
       {/* Timeline visualization */}
       <TimelineVisualization schedule={schedule} hyperperiod={hyperperiod} />
@@ -336,32 +478,26 @@ const RMS = () => {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("theory");
 
-  // ── Utility functions ──────────────────────────────────────────────────
   const gcd = (x, y) => (!y ? x : gcd(y, x % y));
   const lcm = (a, b) => (a * b) / gcd(a, b);
 
-  // ── Add task ───────────────────────────────────────────────────────────
   const addTask = () => {
     setTasks([...tasks, { name: "", execution: "", period: "" }]);
   };
 
-  // ── Delete task ────────────────────────────────────────────────────────
   const deleteTask = (index) => {
     if (tasks.length > 1) {
       setTasks(tasks.filter((_, i) => i !== index));
     }
   };
 
-  // ── Handle input changes ───────────────────────────────────────────────
   const handleChange = (index, field, value) => {
     const newTasks = [...tasks];
     newTasks[index][field] = value;
     setTasks(newTasks);
   };
 
-  // ── Simulate RMS scheduling ────────────────────────────────────────────
   const simulateRMS = () => {
-    // Validation
     if (tasks.some((t) => !t.name || !t.execution || !t.period)) {
       setError("Please fill all fields for each task.");
       setSchedule([]);
@@ -376,24 +512,20 @@ const RMS = () => {
 
     setError("");
 
-    // Convert to numbers
     const taskData = tasks.map((t) => ({
       name: t.name,
       execution: parseInt(t.execution),
       period: parseInt(t.period),
     }));
 
-    // Validate
     if (taskData.some((t) => t.execution <= 0 || t.period <= 0)) {
       setError("Execution time and period must be positive integers.");
       setSchedule([]);
       return;
     }
 
-    // Sort by period (higher priority = shorter period)
     const sortedTasks = [...taskData].sort((a, b) => a.period - b.period);
 
-    // Calculate hyperperiod
     let hp = sortedTasks[0].period;
     for (let i = 1; i < sortedTasks.length; i++) {
       hp = lcm(hp, sortedTasks[i].period);
@@ -405,17 +537,14 @@ const RMS = () => {
       return;
     }
 
-    // Generate RMS schedule (preemptive)
     const sched = [];
     const remaining = sortedTasks.map((t) => 0);
 
     for (let time = 0; time < hp; time++) {
-      // Release tasks at start of period
       sortedTasks.forEach((t, idx) => {
         if (time % t.period === 0) remaining[idx] = t.execution;
       });
 
-      // Pick highest priority ready task
       const readyTasks = remaining
         .map((rem, idx) => ({ rem, idx }))
         .filter((t) => t.rem > 0);
@@ -433,15 +562,6 @@ const RMS = () => {
     setSchedule(sched);
   };
 
-  // ── Load example ───────────────────────────────────────────────────────
-  const loadExample = (exampleIndex) => {
-    const ex = EXAMPLES[exampleIndex];
-    setTasks(JSON.parse(JSON.stringify(ex.tasks)));
-    setSchedule([]);
-    setError("");
-  };
-
-  // ── Reset ──────────────────────────────────────────────────────────────
   const reset = () => {
     setTasks([{ name: "", execution: "", period: "" }]);
     setSchedule([]);
@@ -459,16 +579,14 @@ const RMS = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 p-6 md:p-12 flex flex-col items-center">
-      {/* Header */}
       <h1 className="text-3xl font-bold mb-2 text-indigo-700">
         Rate Monotonic Scheduling (RMS)
       </h1>
       <p className="text-gray-500 mb-6 text-center max-w-xl text-sm">
-        A fixed-priority scheduling algorithm where task priority is inversely proportional to its
-        period. Learn why shorter periods get higher priority and how this guarantees deadline safety.
+        A fixed-priority scheduling algorithm where task priority is inversely proportional to its period.
+        Learn why shorter periods get higher priority, preemption, and mathematical deadline guarantees.
       </p>
 
-      {/* Tab bar */}
       <div className="flex gap-2 mb-6 bg-white border border-gray-300 rounded-lg p-1 w-full max-w-4xl">
         {tabs.map((t) => (
           <button
@@ -490,16 +608,15 @@ const RMS = () => {
         <>
           <Section title="What is Rate Monotonic Scheduling (RMS)?">
             <p className="text-gray-700 leading-relaxed mb-3">
-              <span className="font-bold text-indigo-600">RMS (Rate Monotonic Scheduling)</span> is
-              a <span className="font-semibold">fixed-priority scheduling algorithm</span> for
-              periodic real-time tasks. It assigns task priority based on their period: tasks with{" "}
-              <span className="font-bold">shorter periods get higher priority</span>.
+              <span className="font-bold text-indigo-600">RMS (Rate Monotonic Scheduling)</span> is a
+              <span className="font-semibold"> fixed-priority scheduling algorithm</span> for periodic
+              real-time tasks. It assigns priority based on period: tasks with <span className="font-bold">
+              shorter periods get higher priority</span>.
             </p>
             <p className="text-gray-700 leading-relaxed">
-              RMS is one of the most widely used scheduling algorithms in real-time systems. It's
-              optimal for certain task sets and offers strong deadline guarantees. The key insight
-              is that <span className="font-semibold">frequent tasks are more urgent</span> and
-              deserve higher priority.
+              RMS is one of the most widely used scheduling algorithms in real-time systems. The key insight
+              is that <span className="font-semibold">frequent tasks are more urgent</span> and deserve
+              higher priority. RMS is optimal for many task sets and provides mathematical deadline guarantees.
             </p>
           </Section>
 
@@ -526,7 +643,7 @@ const RMS = () => {
               <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
                 <p className="font-bold text-indigo-700 mb-2">🔄 Preemptive</p>
                 <p className="text-gray-700 text-sm">
-                  A higher-priority task can interrupt (preempt) a lower-priority task.
+                  A higher-priority task can interrupt a lower-priority task mid-execution.
                 </p>
               </div>
             </div>
@@ -579,7 +696,7 @@ const RMS = () => {
             </ol>
           </Section>
 
-          <Section title="Key Formulas & Bounds">
+          <Section title="Key Formulas & Utilization Bound">
             <div className="space-y-3">
               <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 text-center">
                 <p className="text-lg font-bold text-indigo-700 mb-2">Priority Assignment Rule</p>
@@ -594,7 +711,9 @@ const RMS = () => {
                 <p className="text-sm text-gray-600">
                   For n periodic tasks: U = Σ(Ci / Ti) ≤ n(2^(1/n) - 1)
                   <br />
-                  If utilization &lt; bound, all deadlines are guaranteed to be met.
+                  If U &lt; bound, all deadlines are GUARANTEED to be met (sufficient condition).
+                  <br />
+                  If U ≥ bound, system MIGHT still be feasible (need to check schedule).
                 </p>
               </div>
             </div>
@@ -613,37 +732,13 @@ const RMS = () => {
                 </thead>
                 <tbody>
                   {[
-                    [
-                      "RMS (Rate Monotonic)",
-                      "Period (fixed)",
-                      "Offline",
-                      "Optimal for U ≤ 69%",
-                    ],
-                    [
-                      "EDF (Earliest Deadline)",
-                      "Deadline (dynamic)",
-                      "At runtime",
-                      "Optimal (always)",
-                    ],
-                    [
-                      "Static Scheduling",
-                      "Pre-computed offline",
-                      "Offline",
-                      "Optimal if feasible",
-                    ],
-                    [
-                      "FCFS (First Come First Served)",
-                      "Arrival order",
-                      "At runtime",
-                      "Not optimal",
-                    ],
+                    ["RMS", "Period (fixed)", "Offline", "Optimal for U ≤ 69%"],
+                    ["EDF", "Deadline (dynamic)", "Runtime", "Optimal (always)"],
+                    ["Static Scheduling", "Pre-computed", "Offline", "Optimal if feasible"],
+                    ["FCFS", "Arrival order", "Runtime", "Not optimal"],
                   ].map(([alg, rule, time, optimal], i) => (
                     <tr key={alg} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-                      <td
-                        className={`px-4 py-2 font-semibold ${
-                          alg === "RMS (Rate Monotonic)" ? "text-indigo-600" : "text-gray-700"
-                        }`}
-                      >
+                      <td className={`px-4 py-2 font-semibold ${alg === "RMS" ? "text-indigo-600" : "text-gray-700"}`}>
                         {alg}
                       </td>
                       <td className="px-4 py-2 text-gray-600">{rule}</td>
@@ -656,69 +751,16 @@ const RMS = () => {
             </div>
           </Section>
 
-          <Section title="Advantages & Disadvantages">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="font-bold text-green-700 mb-3">✅ Advantages</p>
-                <ul className="text-sm text-gray-700 space-y-2 list-disc list-inside">
-                  <li>Simple priority assignment rule (based on period)</li>
-                  <li>Optimal for many practical task sets</li>
-                  <li>Deadline guarantees if utilization is below bound</li>
-                  <li>Proven algorithm, widely used in industry</li>
-                  <li>Low scheduling overhead (fixed priorities)</li>
-                </ul>
-              </div>
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <p className="font-bold text-red-700 mb-3">❌ Disadvantages</p>
-                <ul className="text-sm text-gray-700 space-y-2 list-disc list-inside">
-                  <li>Not optimal for all task sets (unlike EDF)</li>
-                  <li>Fixed priorities may be inefficient in some cases</li>
-                  <li>Requires knowing periods in advance</li>
-                  <li>Utilization bound is conservative (~69%)</li>
-                  <li>Can suffer from priority inversion</li>
-                </ul>
-              </div>
-            </div>
-          </Section>
-
-          <Section title="When is RMS Used?">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-              {[
-                {
-                  icon: "🚗",
-                  title: "Automotive Systems",
-                  desc: "Engine control, ABS, powertrain where periodic sensing is critical.",
-                },
-                {
-                  icon: "⚙️",
-                  title: "Industrial Control",
-                  desc: "Process monitoring, factory automation with fixed periodicities.",
-                },
-                {
-                  icon: "🛡️",
-                  title: "Embedded Systems",
-                  desc: "IoT devices, microcontrollers with predictable workloads.",
-                },
-              ].map(({ icon, title, desc }) => (
-                <div key={title} className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
-                  <div className="text-3xl mb-2">{icon}</div>
-                  <p className="font-bold text-gray-800 mb-1">{title}</p>
-                  <p className="text-gray-600">{desc}</p>
-                </div>
-              ))}
-            </div>
-          </Section>
-
           <Section title="Quick Verification Checklist">
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-gray-700 space-y-2">
               {[
-                "✅ Tasks are sorted by period (ascending). Shortest = P1 (highest).",
+                "✅ Tasks sorted by period (ascending). Shortest = P1 (highest).",
                 "✅ At each time unit, check for new job releases (time % period == 0).",
                 "✅ Identify all ready (released but unfinished) jobs.",
                 "✅ Execute the highest-priority ready job for 1 time unit.",
                 "✅ If a higher-priority job is released, preempt the current job.",
                 "✅ Lower-priority jobs never run while higher-priority jobs are ready.",
-                "✅ All jobs complete within the hyperperiod without missing deadlines.",
+                "✅ Calculate utilization: U = Σ(Ci / Ti). Check against RMS bound.",
               ].map((line, i) => (
                 <p key={i}>{line}</p>
               ))}
@@ -731,12 +773,15 @@ const RMS = () => {
       {activeTab === "examples" && (
         <div className="w-full max-w-4xl">
           <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6 text-sm text-indigo-800">
-            <p className="font-bold mb-1">💡 How to read these examples</p>
+            <p className="font-bold mb-1">💡 7 Complete Examples (All Critical RMS Cases)</p>
+            <p className="mb-2">
+              <strong>Ex 1-3:</strong> Basic RMS, high/low frequency mix, preemption in action.
+            </p>
+            <p className="mb-2">
+              <strong>Ex 4-5:</strong> Optimal case (guaranteed deadlines), tie-breaking (equal periods).
+            </p>
             <p>
-              Each example shows the tasks with assigned priorities (P1, P2, P3...), a step-by-step
-              explanation of the RMS logic, task statistics, an execution timeline visualization,
-              and a detailed schedule table. Pay attention to how preemption works when high-priority
-              tasks are released.
+              <strong>Ex 6-7:</strong> Bound violated but feasible, system overload/failure.
             </p>
           </div>
           {EXAMPLES.map((ex, i) => (
@@ -751,18 +796,16 @@ const RMS = () => {
           <div className="w-full max-w-4xl bg-indigo-50 border border-indigo-200 rounded-lg p-4 mb-6 text-sm text-indigo-800">
             <p className="font-bold mb-1">🧪 Try it yourself</p>
             <p>
-              Enter your own tasks with execution times and periods. The simulator will assign
-              priorities based on period (shorter period = higher priority) and generate the RMS
-              schedule showing preemptions and deadline safety.
+              Enter your own tasks with execution times and periods. The simulator will assign priorities
+              based on period (shorter = higher) and generate the RMS schedule with preemptions, deadline safety,
+              and utilization analysis.
             </p>
           </div>
 
-          {/* Input Form */}
           <div className="w-full max-w-4xl">
             <div className="bg-white rounded-lg border border-gray-300 p-6 mb-4">
               <h3 className="font-bold text-gray-800 mb-4">Define Your Tasks</h3>
 
-              {/* Task table */}
               <div className="overflow-x-auto mb-4">
                 <table className="w-full text-sm">
                   <thead className="border-b border-gray-300">
@@ -826,7 +869,6 @@ const RMS = () => {
                 </table>
               </div>
 
-              {/* Action buttons */}
               <div className="flex gap-3 flex-wrap">
                 <button
                   onClick={addTask}
@@ -843,7 +885,6 @@ const RMS = () => {
               </div>
             </div>
 
-            {/* Simulate button */}
             <button
               onClick={simulateRMS}
               className="w-full bg-green-500 text-white px-8 py-3 rounded-lg hover:bg-green-600 font-bold text-lg transition mb-6"
@@ -851,17 +892,14 @@ const RMS = () => {
               Simulate
             </button>
 
-            {/* Error */}
             {error && (
               <p className="text-red-600 font-semibold mb-4 bg-red-50 border border-red-200 p-3 rounded">
                 {error}
               </p>
             )}
 
-            {/* Results */}
             {schedule.length > 0 && (
               <div className="space-y-4">
-                {/* Stats cards */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                   <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-center">
                     <p className="text-gray-600 text-sm">Hyperperiod</p>
@@ -883,12 +921,10 @@ const RMS = () => {
                   </div>
                 </div>
 
-                {/* Timeline chart */}
                 <div className="bg-white p-4 rounded-lg border border-gray-300">
                   <TimelineVisualization schedule={schedule} hyperperiod={hyperperiod} />
                 </div>
 
-                {/* Schedule table */}
                 <div className="bg-white p-4 rounded-lg border border-gray-300">
                   <ScheduleTable schedule={schedule} tasks={tasks} />
                 </div>
